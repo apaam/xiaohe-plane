@@ -24,7 +24,6 @@ services:
       XIAOHE_ACCOUNTS_URL: https://accounts.xiaohe.team
       XIAOHE_OAUTH_CLIENT_ID: plane
       XIAOHE_OAUTH_REDIRECT: https://plane.xiaohe.team/auth/xiaohe/callback/
-      XIAOHE_SSO_EMAIL_MAP: lai.zhengshou@outlook.com=laizhengsh@mail.sysu.edu.cn
   worker:
     mem_limit: 384m
     restart: unless-stopped

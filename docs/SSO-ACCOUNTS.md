@@ -66,10 +66,10 @@
 
 ## 用户与权限
 
-- 邮箱映射：`XIAOHE_SSO_EMAIL_MAP`，格式 `accounts-email=plane-email`。当前把 `lai.zhengshou@outlook.com` 映射到 `laizhengsh@mail.sysu.edu.cn`，避免 accounts 登录新建一个没有 workspace 的重复用户。
+- 不再使用邮箱映射：Plane 用户邮箱与 accounts 邮箱一致，均为 `lai.zhengshou@outlook.com`。
 
 
-- 按 email 关联已有 Plane 用户；管理员 `laizhengsh@mail.sysu.edu.cn` 直接关联。
+- 按 email 关联已有 Plane 用户；管理员 `lai.zhengshou@outlook.com` 直接关联。
 - 新用户只创建 Plane 账号，不自动加入 workspace；成员关系仍由管理员在 Plane 或 `create_user.py` 管理。
 - `is_admin` 只作为审计信息，不自动授予 Plane 实例管理员。
 - bot `agent-bot@xiaohe.local` 不走 SSO，继续用 API token。

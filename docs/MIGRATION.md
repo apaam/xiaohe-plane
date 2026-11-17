@@ -23,7 +23,7 @@
 
 ### 运行时
 
-- 自定义镜像 `xiaohe-plane-backend:v1.5.0-xh5`（SSO + 邮箱映射 + hairpin 修复 +
+- 自定义镜像 `xiaohe-plane-backend:v1.5.0-xh5`（SSO + 直接邮箱关联 + hairpin 修复 +
   Page 图片 inline 补丁）。
 - 自定义前端 `xiaohe-plane-web:v1.5.0-xh3`：去掉顶栏 GitHub 加星、侧栏 Community
   徽标、登录页上游营销、首页快速入门引导；登录页和帮助菜单加入 `Source (AGPL-3.0)`
@@ -43,7 +43,7 @@
    - 暂保留 VPS 手动 `auth/plane/build.sh` + tag；确认 registry/runner 后再加 workflow。
    - 不建议把上游源码整包 vendor 进来；继续 pin 上游镜像，只维护 `auth/plane` 补丁。
 2. **运行时 env 收窄**：在维护窗口把 `~/plane-selfhost/plane.env` 按 `plane.env.example` 收敛，先备份再重建容器。
-3. **SSO 真实验收**：用 accounts 账号完成一次浏览器登录；邮箱映射已配。
+3. **SSO 真实验收**：用 accounts 账号完成一次浏览器登录；Plane 用户邮箱已与 accounts 一致。
 4. **密钥归位**：
    - `admin-password`、`agent-bot.token` 目前在 VPS 600 文件；可迁到密码管理器/accounts 体系。
    - 不要把 token/密码写进仓库或 Plane issue。
