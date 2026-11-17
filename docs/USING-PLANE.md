@@ -8,7 +8,7 @@
 
 ## 开发项目
 
-Plane 没有子项目；四个代码仓各建一个项目，再用 workspace 视图汇总：
+Plane 没有子项目；每个代码仓建一个项目，再用 workspace 视图汇总：
 
 | 项目 | identifier | 仓库 |
 |---|---|---|
@@ -16,9 +16,10 @@ Plane 没有子项目；四个代码仓各建一个项目，再用 workspace 视
 | xiaohe reader | XHR | `xiaohe-reader` |
 | xiaohe cluster | XHC | `xiaohe-cluster` |
 | xiaohe plane | XHP | `xiaohe-plane` |
+| phynexis viewer | PXV | `phynexis-viewer` |
 
 - 汇总视图：`https://plane.xiaohe.team/research/workspace-views/b67f5a09-8e05-4402-941f-329502b71dbc/`
-- 视图已固定过滤这四个项目，工作台的任务不会混进来。
+- 视图已固定过滤这五个项目，工作台的任务不会混进来。
 - Plane 项目名不允许连字符，所以用空格；identifier 仍按代码仓缩写。
 - 分支与 commit 带 identifier，如 `XHA-12: ...`；Gitea PR 里贴 Plane 链接。
 
