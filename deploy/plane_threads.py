@@ -21,7 +21,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 ROOT = Path.home() / ".xiaohe" / "plane"
@@ -40,11 +40,13 @@ ACTIVE_GROUPS = {"backlog", "unstarted", "started"}
 NEW_GROUPS = {"backlog", "unstarted"}
 DONE_GROUPS = {"completed", "cancelled"}
 BUSY_STATUSES = {"running", "queued", "pending", "starting"}
+FAILED_STATUSES = {"error", "failed", "terminated"}
 
 THREADS_LOCK_AGE = 600
 AGENT_LOCK_AGE = 2700
 STALL_SECONDS = 900
 RETRY_SECONDS = 3600
+MAX_AUTO_RETRIES = 3
 
 
 def log(message: str) -> None:
@@ -223,6 +225,67 @@ def release_agent_lock(identifier: str) -> None:
         AGENT_LOCK.unlink(missing_ok=True)
 
 
+def mark_failure(
+    threads: dict,
+    item_id: str,
+    thread: dict,
+    token: str,
+    reason: str,
+    message: str,
+) -> None:
+    """Record a failed turn and schedule a bounded automatic retry."""
+    identifier = str(thread.get("identifier") or item_id)
+    release_agent_lock(identifier)
+    now = datetime.now(timezone.utc)
+    attempts = int(thread.get("auto_retries") or 0) + 1
+    thread["auto_retries"] = attempts
+    thread["needs_resume"] = True
+    thread["last_failure"] = reason
+    thread["retry_after"] = now.timestamp() + RETRY_SECONDS
+    thread["retry_after_iso"] = (now + timedelta(seconds=RETRY_SECONDS)).isoformat()
+    thread["updated_at"] = now.isoformat()
+    threads[item_id] = thread
+    save_threads(threads)
+    if attempts == 1:
+        plane_comment(
+            token,
+            item_id,
+            f"{message}\n\n将在 1 小时后自动重试（最多 {MAX_AUTO_RETRIES} 次）。",
+        )
+    elif attempts >= MAX_AUTO_RETRIES:
+        plane_comment(
+            token,
+            item_id,
+            f"{message}\n\n已自动重试 {attempts} 次仍未完成，暂停自动处理，"
+            "等待人工回复后再继续。",
+        )
+    log(f"{identifier} failure #{attempts} ({reason}); retry after 1h")
+
+
+def pending_completed(thread: dict, status: str, updated_at: float) -> bool:
+    """True when the last forwarded turn finished without an error."""
+    if status != "ready":
+        return False
+    try:
+        sent_at = float(thread.get("pending_sent_at") or 0)
+    except (TypeError, ValueError):
+        return False
+    return bool(sent_at) and updated_at > sent_at + 2
+
+
+def clear_pending(thread: dict) -> None:
+    for key in (
+        "pending_prompt",
+        "pending_sent_at",
+        "needs_resume",
+        "retry_after",
+        "retry_after_iso",
+        "last_failure",
+    ):
+        thread.pop(key, None)
+    thread["auto_retries"] = 0
+
+
 def plane_comment(token: str, item_id: str, text: str) -> None:
     status, data = http_json(
         "POST",
@@ -312,6 +375,7 @@ def initial_prompt(item: dict, comments: list, state_group: str) -> str:
         [
             "开始前先在 `~/.xiaohe/plane/agent.lock` 建立单实例锁；如果已有未超过 45 分钟的锁，直接结束。",
             "加载 `plane-agent` 技能并读取 `SKILL.md`，使用 `~/.xiaohe/plane/agent-token` 的 bot 身份。",
+            "不要启动 MCP server、不要运行 `plane-mcp.sh`、`xiaohe` 或 `claude` 子进程；直接用 Bash + curl/Python 调 Plane REST API。",
             "",
             "规则：",
             f"- 只处理 {identifier}，不要处理其他工作项。",
@@ -337,6 +401,7 @@ def resume_prompt(item: dict, comments: list) -> str:
     lines.extend(
         [
             "",
+            "不要启动 MCP server、`plane-mcp.sh`、`xiaohe` 或 `claude` 子进程；直接用 Bash + curl/Python 调 Plane REST API。",
             "处理后请在 Plane 该工作项下回写评论和状态；需要用户决策时继续提问。",
         ]
     )
@@ -359,36 +424,57 @@ def session_running(threads: dict, token: str) -> bool:
             save_threads(threads)
             continue
         status = info["status"]
+        updated_at = info["updated_at"]
+        identifier = str(thread.get("identifier") or key)
         if status in BUSY_STATUSES:
-            updated_at = info["updated_at"]
             age = time.time() - updated_at if updated_at else None
             if age is not None and age > STALL_SECONDS:
-                identifier = str(thread.get("identifier") or key)
                 log(f"{identifier} stalled for {int(age)}s; cancelling")
                 session_api(
                     "POST", f"/v1/sessions/{session_id}/cancel?source=plane-bridge"
                 )
-                release_agent_lock(identifier)
-                plane_comment(
-                    token,
+                mark_failure(
+                    threads,
                     key,
-                    "自动处理超时（session 超过 15 分钟没有新输出），已中止本轮；请回复继续或手动处理。",
+                    thread,
+                    token,
+                    "stalled",
+                    "自动处理超时（session 超过 15 分钟没有新输出），已中止本轮。",
                 )
-                thread["stalled_at"] = datetime.now(timezone.utc).isoformat()
-                thread["retry_after"] = (
-                    datetime.now(timezone.utc)
-                    .replace(microsecond=0)
-                    .timestamp()
-                    + RETRY_SECONDS
-                )
-                thread["retry_after_iso"] = datetime.fromtimestamp(
-                    thread["retry_after"], timezone.utc
-                ).isoformat()
-                threads[key] = thread
-                save_threads(threads)
                 continue
-            log(f"{thread.get('identifier', key)} session is {status}; wait")
+            log(f"{identifier} session is {status}; wait")
             return True
+        if status in FAILED_STATUSES:
+            if thread.get("pending_prompt"):
+                mark_failure(
+                    threads,
+                    key,
+                    thread,
+                    token,
+                    status,
+                    f"agent 会话异常结束（{status}），本轮未完成。",
+                )
+            continue
+        if pending_completed(thread, status, updated_at):
+            clear_pending(thread)
+            thread["updated_at"] = datetime.now(timezone.utc).isoformat()
+            threads[key] = thread
+            save_threads(threads)
+            log(f"{identifier} turn completed")
+            continue
+        try:
+            sent_at = float(thread.get("pending_sent_at") or 0)
+        except (TypeError, ValueError):
+            sent_at = 0.0
+        if sent_at and time.time() - sent_at > STALL_SECONDS:
+            mark_failure(
+                threads,
+                key,
+                thread,
+                token,
+                "not-started",
+                "agent 会话没有开始本轮处理，可能是登录状态或运行时异常。",
+            )
     return False
 
 
@@ -442,10 +528,23 @@ def main() -> int:
                         continue
                 except (TypeError, ValueError):
                     pass
+                if thread.get("needs_resume") and thread.get("pending_prompt"):
+                    if int(thread.get("auto_retries") or 0) >= MAX_AUTO_RETRIES:
+                        continue
+                    candidates.append(
+                        (
+                            "retry:" + str(thread.get("retry_after_iso") or ""),
+                            item,
+                            thread,
+                            [],
+                        )
+                    )
+                    continue
                 last_raw = str(thread.get("last_human_at") or "")
                 last_dt = parse_time(last_raw) if last_raw else None
                 new_comments = [c for c in humans if last_dt is None or c["created_dt"] > last_dt]
                 if new_comments:
+                    clear_pending(thread)
                     candidates.append(
                         (new_comments[0]["created_at"], item, thread, new_comments)
                     )
@@ -461,10 +560,13 @@ def main() -> int:
         identifier = f"WORK-{item.get('sequence_id')}"
         title = f"{identifier} · {item.get('name')}"
         if thread is None:
-            session_id = session_create(title)
-            status, data = session_message(
-                session_id, initial_prompt(item, comments, str((state_map.get(str(item.get("state"))) or {}).get("group") or ""))
+            prompt = initial_prompt(
+                item,
+                comments,
+                str((state_map.get(str(item.get("state"))) or {}).get("group") or ""),
             )
+            session_id = session_create(title)
+            status, data = session_message(session_id, prompt)
             if status != 200:
                 log(f"initial message failed for {identifier}: {status} {data}")
                 return 1
@@ -474,24 +576,36 @@ def main() -> int:
                 "session_id": session_id,
                 "last_human_at": last_human,
                 "updated_at": datetime.now(timezone.utc).isoformat(),
+                "pending_prompt": prompt,
+                "pending_sent_at": time.time(),
+                "auto_retries": 0,
             }
             save_threads(threads)
             log(f"created session {session_id} for {identifier}")
             return 0
 
         session_id = str(thread.get("session_id") or "")
-        status, data = session_message(session_id, resume_prompt(item, comments))
+        retrying = bool(thread.get("needs_resume") and thread.get("pending_prompt"))
+        prompt = str(thread["pending_prompt"]) if retrying else resume_prompt(item, comments)
+        status, data = session_message(session_id, prompt)
         if status != 200:
             log(f"resume failed for {identifier}: {status} {data}")
             return 1
-        thread["last_human_at"] = comments[-1]["created_at"]
+        if comments:
+            thread["last_human_at"] = comments[-1]["created_at"]
+        thread["pending_prompt"] = prompt
+        thread["pending_sent_at"] = time.time()
         thread["updated_at"] = datetime.now(timezone.utc).isoformat()
         thread.pop("stalled_at", None)
+        thread.pop("needs_resume", None)
         thread.pop("retry_after", None)
         thread.pop("retry_after_iso", None)
         threads[item_id] = thread
         save_threads(threads)
-        log(f"forwarded {len(comments)} comment(s) to {identifier} session {session_id}")
+        if retrying:
+            log(f"retried {identifier} in session {session_id} (attempt {thread.get('auto_retries', 0)})")
+        else:
+            log(f"forwarded {len(comments)} comment(s) to {identifier} session {session_id}")
         return 0
     finally:
         release_lock()
