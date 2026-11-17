@@ -1,0 +1,17 @@
+diff --git a/apps/web/components/workspace/sidebar/help-section/root.tsx b/apps/web/components/workspace/sidebar/help-section/root.tsx
+index f267fb6..ae18acb 100644
+--- a/apps/web/components/workspace/sidebar/help-section/root.tsx
++++ b/apps/web/components/workspace/sidebar/help-section/root.tsx
+@@ -72,6 +72,12 @@ export const HelpMenuRoot = observer(function HelpMenuRoot() {
+             label="Forum"
+             onClick={() => window.open("https://forum.plane.so", "_blank", "noopener,noreferrer")}
+           />
++          <MenuItem
++            label="Source (AGPL-3.0)"
++            onClick={() =>
++              window.open("https://gitea.xiaohe.team/apaam/xiaohe-plane", "_blank", "noopener,noreferrer")
++            }
++          />
+         </MenuContent>
+       </Menu>
+     </>

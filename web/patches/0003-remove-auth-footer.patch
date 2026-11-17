@@ -1,8 +1,8 @@
 diff --git a/apps/web/components/auth-screens/footer.tsx b/apps/web/components/auth-screens/footer.tsx
-index b740381..d36778a 100644
+index b740381..8a72acc 100644
 --- a/apps/web/components/auth-screens/footer.tsx
 +++ b/apps/web/components/auth-screens/footer.tsx
-@@ -4,44 +4,7 @@
+@@ -4,44 +4,19 @@
   * See the LICENSE file for details.
   */
  
@@ -31,9 +31,9 @@ index b740381..d36778a 100644
 -  },
 -];
 -
-+// xiaohe: upstream marketing footer removed
++// xiaohe: upstream marketing footer replaced with the AGPL source offer.
  export function AuthFooter() {
--  return (
+   return (
 -    <div className="flex flex-col items-center gap-6">
 -      <span className="text-body-xs-regular whitespace-nowrap text-tertiary">
 -        Join 10,000+ teams building with Plane
@@ -45,7 +45,16 @@ index b740381..d36778a 100644
 -          </div>
 -        ))}
 -      </div>
--    </div>
--  );
-+  return null;
++    <div className="flex flex-col items-center gap-2">
++      <span className="text-body-xs-regular text-tertiary">Plane Community Edition · AGPL-3.0</span>
++      <a
++        className="text-body-xs-regular text-accent-primary hover:underline"
++        href="https://gitea.xiaohe.team/apaam/xiaohe-plane"
++        target="_blank"
++        rel="noopener noreferrer"
++      >
++        Source code
++      </a>
+     </div>
+   );
  }

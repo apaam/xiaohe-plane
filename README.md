@@ -7,6 +7,7 @@
 - 实例：`https://plane.xiaohe.team`，登录走 xiaohe accounts SSO；本地 `/sign-in/` 保留为 break-glass。
 - 个人工作台：`课题组 / research`，项目 `工作台 / WORK`。
 - agent：`agent-bot@xiaohe.local` + Plane MCP。
+- 许可：登录页和帮助菜单有 `Source (AGPL-3.0)` 链接，指向公开源码仓。
 - SSO：后端适配 `auth/plane`，自定义 `api` 镜像；前端补丁见 `web/patches`。
 
 ## 结构
