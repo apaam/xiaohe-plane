@@ -23,7 +23,7 @@ import os
 import secrets
 import string
 
-from plane.db.models import Project, ProjectMember, User, Workspace, WorkspaceMember
+from plane.db.models import Profile, Project, ProjectMember, User, Workspace, WorkspaceMember
 
 
 def generate_password() -> str:
@@ -72,6 +72,10 @@ WorkspaceMember.objects.get_or_create(
     member=user,
     defaults={"role": int(os.environ.get("PLANE_WORKSPACE_ROLE", "15"))},
 )
+profile, _ = Profile.objects.get_or_create(user=user)
+profile.is_onboarded = True
+profile.last_workspace_id = workspace.id
+profile.save(update_fields=["is_onboarded", "last_workspace_id"])
 
 project_id = os.environ.get("PLANE_PROJECT_ID")
 if project_id:

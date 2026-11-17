@@ -283,6 +283,21 @@ def xiaohe_callback(request):
     if not next_path or next_path == "/":
         next_path = _default_workspace_path(user)
 
+    # The normal auth adapter creates a Profile during signup. This custom
+    # view bypasses it, and a missing Profile makes /users/me/profile/ (and
+    # therefore the whole web app) fail. Users who already belong to a
+    # workspace are not sent through profile onboarding.
+    profile, _ = Profile.objects.get_or_create(user=user)
+    if (
+        not profile.is_onboarded
+        and Workspace.objects.filter(
+            workspace_member__member=user,
+            workspace_member__is_active=True,
+        ).exists()
+    ):
+        profile.is_onboarded = True
+        profile.save(update_fields=["is_onboarded"])
+
     user.last_login_medium = "xiaohe"
     user.save(update_fields=["last_login_medium"])
     user_login(request=request, user=user, is_app=False)

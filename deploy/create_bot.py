@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import os
 
-from plane.db.models import APIToken, Project, ProjectMember, User, Workspace, WorkspaceMember
+from plane.db.models import APIToken, Profile, Project, ProjectMember, User, Workspace, WorkspaceMember
 
 
 email = os.environ["PLANE_BOT_EMAIL"].strip().lower()
@@ -59,6 +59,10 @@ WorkspaceMember.objects.get_or_create(
     member=user,
     defaults={"role": workspace_role},
 )
+profile, _ = Profile.objects.get_or_create(user=user)
+profile.is_onboarded = True
+profile.last_workspace_id = workspace.id
+profile.save(update_fields=["is_onboarded", "last_workspace_id"])
 
 projects = list(Project.objects.filter(id__in=project_ids)) if project_ids else []
 for project in projects:
