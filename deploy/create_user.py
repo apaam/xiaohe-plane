@@ -57,10 +57,12 @@ user, created = User.objects.get_or_create(
         "is_active": True,
         "is_email_verified": True,
         "is_password_autoset": False,
+        "user_timezone": os.environ.get("PLANE_USER_TIMEZONE", "Asia/Shanghai"),
     },
 )
 user.is_active = True
 user.is_email_verified = True
+user.user_timezone = os.environ.get("PLANE_USER_TIMEZONE", "Asia/Shanghai")
 user.set_password(password)
 user.save()
 

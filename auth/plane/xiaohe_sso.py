@@ -53,6 +53,7 @@ REDIRECT_URI = os.environ.get(
 # Empty means “no deep link”: resolve the user's own last/first workspace.
 DEFAULT_NEXT = ""
 ONBOARDING_NEXT = "/onboarding/"
+DEFAULT_TIMEZONE = os.environ.get("XIAOHE_DEFAULT_TIMEZONE", "Asia/Shanghai")
 PLANE_HOME = os.environ.get("XIAOHE_PLANE_HOME", "https://plane.xiaohe.team/")
 
 # Optional comma-separated aliases: accounts-email=plane-email.
@@ -270,6 +271,7 @@ def xiaohe_callback(request):
             is_active=True,
             is_email_verified=True,
             is_password_autoset=True,
+            user_timezone=DEFAULT_TIMEZONE,
         )
         user.set_unusable_password()
         user.save()
