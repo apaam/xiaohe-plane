@@ -24,6 +24,15 @@ Plane 没有子项目；按产品线建两个项目，项目内用 Module 分代
 - Plane 项目名不允许连字符，所以用空格；identifier 用产品线缩写。
 - 分支与 commit 带 identifier，如 `XHD-12: ...` 或 `PXD-3: ...`；module 说明涉及哪个仓。
 
+## 研究项目
+
+| 项目 | identifier | Module |
+|---|---|---|
+| 海缆 | HC | 流固耦合与疲劳损伤 |
+
+- 研究问题、数据、阶段报告放工作项和 Pages；代码仍归各自仓库。
+- 海缆项目当前只有 `流固耦合与疲劳损伤` 一个 module，后续可按水动力、结构响应、疲劳寿命再拆。
+
 ## 每天怎么用
 
 1. **早上记任务**：在 工作台 里新建 work item，标题写动词开头的一句话；状态放 `Todo`，需要时间点就填 start/target date。
@@ -61,6 +70,30 @@ Safari 打开 `https://plane.xiaohe.team/auth/xiaohe/start/?next=/research/`，�
 - `Agent Bot` 原本是 bot 用户，Plane 的负责人候选会排除 bot；本实例已把该账号的
   `is_bot` 改为 `false`（名称仍是 Agent Bot），所以能在下拉框里选到。升级/重装后若选不到，
   重设该字段即可。
+
+### 成员添加自己的 bot
+
+每个成员用**独立 bot 身份**，不共用你的 `Agent Bot` token。流程：
+
+1. 成员提供 bot 邮箱和显示名，例如 `zhangsan-bot@xiaohe.local`、`Zhangsan Bot`。
+2. workspace 管理员在 VPS 的 api 容器里创建用户、加入项目并签发 token：
+
+```bash
+cd ~/xiaohe-plane  # 或在 VPS 上放 deploy/create_bot.py
+sudo docker cp deploy/create_bot.py plane-selfhost-api-1:/tmp/create_bot.py
+sudo docker exec -e PLANE_BOT_EMAIL=zhangsan-bot@xiaohe.local \
+  -e PLANE_BOT_NAME='Zhangsan Bot' \
+  -e PLANE_PROJECT_IDS=<project_uuid> \
+  -i plane-selfhost-api-1 python manage.py shell < deploy/create_bot.py
+```
+
+脚本会打印一次 `token plane_api_...`，把它私下发给成员；不要贴 Plane、群聊或仓库。
+
+3. 成员在自己机器上保存 token：`~/.xiaohe/plane/agent-token`（600），并配置
+   `plane-agent` 技能或 `plane` MCP wrapper；agent 用这个 token 读写 Plane。
+4. 每个 bot 都是独立账号、独立 token，可单独停用/轮换；成员的 bot 只加入需要参与的项目。
+5. 脚本把 `is_bot` 设为 `false`，否则 Plane 不会把 bot 放进负责人候选；显示名仍保持
+   `XXX Bot`，身份靠 token 和成员关系区分。
 - 没有 accounts 的临时账号用 `xiaohe-plane/deploy/create_user.py` 开通。
 - 一个合作组一个 workspace；个人工作台不要放合作方内容。
 - 不给合作者 mini 的 shell/tailnet 权限；只给 Plane 账号。
