@@ -27,16 +27,19 @@
 - `api` 仅替换镜像；worker/beat/web/proxy 仍用上游 v1.5.0。
 - 本地 `/sign-in/` 保留 break-glass。
 
+## 已完成（提交与远程）
+
+- `xiaohe-plane` 初始提交 `d2ea1a5`，已推送 `http://100.64.0.4:3000/apaam/xiaohe-plane`。
+- `xiaohe-accounts` 提交 `5115102`（plane OAuth client / allowlist），已推送 `apaam/xiaohe-accounts`。
+
 ## 待做（按优先级）
 
-1. **提交两仓**：
-   - `xiaohe-plane`：`git init` 已做，尚未 commit。
-   - `xiaohe-accounts`：plane client / allowlist 4 个文件未 commit。
-2. **Gitea 远程仓与 CI**：
-   - 在 Gitea 建 `xiaohe-plane`，推送本仓。
-   - 增加构建自定义 api 镜像的 workflow（或保留 VPS 手动 build + tag）。
+1. **CI 构建镜像**：
+   - Gitea 28.3.0；未确认 container registry 与 amd64 builder。
+   - 暂保留 VPS 手动 `auth/plane/build.sh` + tag；确认 registry/runner 后再加 workflow。
    - 不建议把上游源码整包 vendor 进来；继续 pin 上游镜像，只维护 `auth/plane` 补丁。
-3. **运行时 env 收窄**：在维护窗口把 `~/plane-selfhost/plane.env` 按 `plane.env.example` 收敛，先备份再重建容器。
+2. **运行时 env 收窄**：在维护窗口把 `~/plane-selfhost/plane.env` 按 `plane.env.example` 收敛，先备份再重建容器。
+3. **SSO 真实验收**：用 accounts 账号完成一次浏览器登录；邮箱映射已配。
 4. **密钥归位**：
    - `admin-password`、`agent-bot.token` 目前在 VPS 600 文件；可迁到密码管理器/accounts 体系。
    - 不要把 token/密码写进仓库或 Plane issue。
