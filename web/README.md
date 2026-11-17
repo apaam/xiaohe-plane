@@ -11,6 +11,7 @@ Plane 上游前端原样构建，只在构建时打几个小补丁，不改业�
 | `0006-replace-billing-page.patch` | 把上游 Billing & Plans 套餐页换成小荷订阅入口 |
 | `0007-sso-only-auth.patch` | 登录/注册/密码页统一跳 accounts SSO；退出同时清 accounts 会话 |
 | `0008-remove-help-button.patch` | 去掉顶栏帮助按钮（键盘快捷键/Source/版本菜单） |
+| `0009-fix-greeting-zh.patch` | 修正中英文问候语（晚上好 / Good evening，不再出现“早上 晚上”） |
 
 ## 构建
 
@@ -18,7 +19,7 @@ Plane 上游前端原样构建，只在构建时打几个小补丁，不改业�
 
 ```bash
 DOCKER="sudo docker" ./web/build.sh
-# 产物：xiaohe-plane-web:v1.5.0-xh7
+# 产物：xiaohe-plane-web:v1.5.0-xh9
 ```
 
 脚本先 `git clone --depth 1 --branch v1.5.0` 上游源码，重置到 tag，打补丁，再用上游
@@ -30,7 +31,7 @@ DOCKER="sudo docker" ./web/build.sh
 
 ```yaml
   web:
-    image: xiaohe-plane-web:v1.5.0-xh7
+    image: xiaohe-plane-web:v1.5.0-xh9
 ```
 
 仍挂载 `web-Caddyfile`（放宽静态资源限流到 10000/min）。

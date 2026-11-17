@@ -1,0 +1,60 @@
+diff --git a/apps/web/components/home/user-greetings.tsx b/apps/web/components/home/user-greetings.tsx
+index 64a4fbc..7146bee 100644
+--- a/apps/web/components/home/user-greetings.tsx
++++ b/apps/web/components/home/user-greetings.tsx
+@@ -48,7 +48,7 @@ export function UserGreetingsView(props: IUserGreetingsView) {
+   return (
+     <div className="my-6 flex flex-col items-center">
+       <h2 className="text-center text-h4-semibold">
+-        {t("good")} {t(greeting)}, {user?.first_name} {user?.last_name}
++        {t(greeting)}, {user?.first_name} {user?.last_name}
+       </h2>
+       <h5 className="flex items-center gap-2 font-medium text-placeholder">
+         <div>{greeting === "morning" ? "🌤️" : greeting === "afternoon" ? "🌥️" : "🌙️"}</div>
+diff --git a/apps/web/components/user/user-greetings.tsx b/apps/web/components/user/user-greetings.tsx
+index 799144c..51f1ded 100644
+--- a/apps/web/components/user/user-greetings.tsx
++++ b/apps/web/components/user/user-greetings.tsx
+@@ -48,7 +48,7 @@ export function UserGreetingsView(props: IUserGreetingsView) {
+   return (
+     <div className="my-6 flex flex-col items-center">
+       <h2 className="text-center text-h4-semibold">
+-        {t("good")} {t(greeting)}, {user?.first_name} {user?.last_name}
++        {t(greeting)}, {user?.first_name} {user?.last_name}
+       </h2>
+       <h5 className="flex items-center gap-2 font-medium text-placeholder">
+         <div>{greeting === "morning" ? "🌤️" : greeting === "afternoon" ? "🌥️" : "🌙️"}</div>
+diff --git a/packages/i18n/src/locales/en/common.json b/packages/i18n/src/locales/en/common.json
+index 09dd8ce..1b79302 100644
+--- a/packages/i18n/src/locales/en/common.json
++++ b/packages/i18n/src/locales/en/common.json
+@@ -331,9 +331,9 @@
+   "make_a_copy": "Make a copy",
+   "move_to_project": "Move to project",
+   "good": "Good",
+-  "morning": "morning",
+-  "afternoon": "afternoon",
+-  "evening": "evening",
++  "morning": "Good morning",
++  "afternoon": "Good afternoon",
++  "evening": "Good evening",
+   "show_all": "Show all",
+   "show_less": "Show less",
+   "no_data_yet": "No Data yet",
+diff --git a/packages/i18n/src/locales/zh-CN/common.json b/packages/i18n/src/locales/zh-CN/common.json
+index 64ee94b..fe7ecb6 100644
+--- a/packages/i18n/src/locales/zh-CN/common.json
++++ b/packages/i18n/src/locales/zh-CN/common.json
+@@ -331,9 +331,9 @@
+   "make_a_copy": "创建副本",
+   "move_to_project": "移动到项目",
+   "good": "早上",
+-  "morning": "早上",
+-  "afternoon": "下午",
+-  "evening": "晚上",
++  "morning": "早上好",
++  "afternoon": "下午好",
++  "evening": "晚上好",
+   "show_all": "显示全部",
+   "show_less": "显示更少",
+   "no_data_yet": "暂无数据",
