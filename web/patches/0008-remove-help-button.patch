@@ -1,0 +1,18 @@
+--- a/apps/web/components/navigation/top-navigation-root.tsx
++++ b/apps/web/components/navigation/top-navigation-root.tsx
+@@ -11,7 +11,6 @@
+ import { useTranslation } from "@plane/i18n";
+ import { cn } from "@plane/utils";
+ import { TopNavPowerK } from "@/components/navigation";
+-import { HelpMenuRoot } from "@/components/workspace/sidebar/help-section/root";
+ import { UserMenuRoot } from "@/components/workspace/sidebar/user-menu-root";
+ import { WorkspaceMenuRoot } from "@/components/workspace/sidebar/workspace-menu-root";
+ import { useAppRailPreferences } from "@/hooks/use-navigation-preferences";
+@@ -90,7 +89,6 @@
+             </span>
+           </IconButton>
+         </Tooltip>
+-        <HelpMenuRoot />
+         <UserMenuRoot />
+       </div>
+     </div>

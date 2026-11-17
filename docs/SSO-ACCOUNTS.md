@@ -1,6 +1,6 @@
 # xiaohe accounts SSO：方案与落地
 
-- 状态：**已实现**（backend xh9 + web xh6）；本地密码 API 保留 break-glass，登录/注册/密码页统一跳 accounts。
+- 状态：**已实现**（backend xh9 + web xh7）；本地密码 API 保留 break-glass，登录/注册/密码页统一跳 accounts。
 - 准入：`client_id=plane` 需要账号有有效的小荷订阅（管理员豁免）；未通过返回 402 `subscription_required`。
 
 - 目标：Plane 登录、注册、找回密码全部走 xiaohe accounts；本地密码 API 保留作 break-glass，但不提供网页入口。
