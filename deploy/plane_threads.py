@@ -43,6 +43,8 @@ BUSY_STATUSES = {"running", "queued", "pending", "starting"}
 
 THREADS_LOCK_AGE = 600
 AGENT_LOCK_AGE = 2700
+STALL_SECONDS = 900
+RETRY_SECONDS = 3600
 
 
 def log(message: str) -> None:
@@ -125,13 +127,22 @@ def session_api(method: str, path: str, body=None):
     )
 
 
-def session_status(session_id: str):
+def session_info(session_id: str):
     status, data = session_api("GET", f"/v1/sessions/{session_id}")
     if status == 404:
         return None
     if status != 200:
         raise RuntimeError(f"session GET {session_id}: {status} {data}")
-    return str(data.get("status") or "")
+    try:
+        updated_at = float(data.get("updated_at") or 0)
+    except (TypeError, ValueError):
+        updated_at = 0.0
+    return {"status": str(data.get("status") or ""), "updated_at": updated_at}
+
+
+def session_status(session_id: str):
+    info = session_info(session_id)
+    return None if info is None else info["status"]
 
 
 def session_create(title: str):
@@ -198,6 +209,29 @@ def agent_busy() -> bool:
         return True
     shutil.rmtree(AGENT_LOCK, ignore_errors=True)
     return False
+
+
+def release_agent_lock(identifier: str) -> None:
+    if not AGENT_LOCK.exists():
+        return
+    try:
+        data = json.loads(AGENT_LOCK.read_text(encoding="utf-8"))
+        task = str(data.get("task") or "")
+    except (OSError, json.JSONDecodeError):
+        task = ""
+    if not task or task == identifier:
+        AGENT_LOCK.unlink(missing_ok=True)
+
+
+def plane_comment(token: str, item_id: str, text: str) -> None:
+    status, data = http_json(
+        "POST",
+        PLANE_BASE + f"/projects/{PROJECT_ID}/work-items/{item_id}/comments/",
+        {"X-API-Key": token, "Accept": "application/json"},
+        {"comment_html": f"<p>{html.escape(text)}</p>"},
+    )
+    if status not in (200, 201):
+        log(f"comment write failed for {item_id}: {status} {data}")
 
 
 def load_threads() -> dict:
@@ -309,22 +343,50 @@ def resume_prompt(item: dict, comments: list) -> str:
     return "\n".join(lines)
 
 
-def session_running(threads: dict) -> bool:
+def session_running(threads: dict, token: str) -> bool:
     for key, thread in list(threads.items()):
         session_id = str(thread.get("session_id") or "")
         if not session_id:
             continue
         try:
-            status = session_status(session_id)
+            info = session_info(session_id)
         except RuntimeError as exc:
             log(f"status check failed for {key}: {exc}")
             continue
-        if status is None:
+        if info is None:
             # A deleted session is recreated lazily when this item is next seen.
             del threads[key]
             save_threads(threads)
             continue
+        status = info["status"]
         if status in BUSY_STATUSES:
+            updated_at = info["updated_at"]
+            age = time.time() - updated_at if updated_at else None
+            if age is not None and age > STALL_SECONDS:
+                identifier = str(thread.get("identifier") or key)
+                log(f"{identifier} stalled for {int(age)}s; cancelling")
+                session_api(
+                    "POST", f"/v1/sessions/{session_id}/cancel?source=plane-bridge"
+                )
+                release_agent_lock(identifier)
+                plane_comment(
+                    token,
+                    key,
+                    "自动处理超时（session 超过 15 分钟没有新输出），已中止本轮；请回复继续或手动处理。",
+                )
+                thread["stalled_at"] = datetime.now(timezone.utc).isoformat()
+                thread["retry_after"] = (
+                    datetime.now(timezone.utc)
+                    .replace(microsecond=0)
+                    .timestamp()
+                    + RETRY_SECONDS
+                )
+                thread["retry_after_iso"] = datetime.fromtimestamp(
+                    thread["retry_after"], timezone.utc
+                ).isoformat()
+                threads[key] = thread
+                save_threads(threads)
+                continue
             log(f"{thread.get('identifier', key)} session is {status}; wait")
             return True
     return False
@@ -341,12 +403,12 @@ def main() -> int:
         if not token:
             log("empty Plane token")
             return 1
-        if agent_busy():
-            log("agent lock is held; skip")
-            return 0
 
         threads = load_threads()
-        if session_running(threads):
+        if session_running(threads, token):
+            return 0
+        if agent_busy():
+            log("agent lock is held; skip")
             return 0
 
         members = plane_get("/members/", token)
@@ -374,6 +436,12 @@ def main() -> int:
             humans = human_comments(comments, bot_id, actors)
             thread = threads.get(item_id)
             if thread:
+                retry_after = thread.get("retry_after")
+                try:
+                    if retry_after and float(retry_after) > time.time():
+                        continue
+                except (TypeError, ValueError):
+                    pass
                 last_raw = str(thread.get("last_human_at") or "")
                 last_dt = parse_time(last_raw) if last_raw else None
                 new_comments = [c for c in humans if last_dt is None or c["created_dt"] > last_dt]
@@ -418,6 +486,9 @@ def main() -> int:
             return 1
         thread["last_human_at"] = comments[-1]["created_at"]
         thread["updated_at"] = datetime.now(timezone.utc).isoformat()
+        thread.pop("stalled_at", None)
+        thread.pop("retry_after", None)
+        thread.pop("retry_after_iso", None)
         threads[item_id] = thread
         save_threads(threads)
         log(f"forwarded {len(comments)} comment(s) to {identifier} session {session_id}")

@@ -115,7 +115,7 @@ sudo docker exec -e PLANE_BOT_EMAIL=zhangsan-bot@xiaohe.local \
 - `deploy/plane_threads.py`：一个 work item 对应一个 xiaohe session；人类评论转发到该 session，agent 的回复写回 Plane 评论。
 - 映射在 `~/.xiaohe/plane/threads.json`；同一时间只启动一个 agent turn。
 - launchd 模板：`deploy/com.xiaohe.plane-threads.plist.example`，默认 120 秒轮询。
-- 当前在 mini 上**暂停**：首次复杂任务测试时 agent runtime 卡住，需先加超时/看门狗并验证模型工具调用后再启用。
+- 当前在 mini 上**暂停**：首次复杂任务测试时 agent runtime 卡住；脚本已有 15 分钟无输出自动取消/1 小时重试保护，等模型工具调用稳定后再启用。
 
 ## 备份
 
