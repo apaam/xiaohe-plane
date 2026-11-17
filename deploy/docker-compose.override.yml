@@ -1,0 +1,53 @@
+services:
+  web:
+    mem_limit: 384m
+    restart: unless-stopped
+    volumes:
+      - ./web-Caddyfile:/etc/caddy/Caddyfile:ro
+  space:
+    mem_limit: 192m
+    restart: unless-stopped
+  admin:
+    mem_limit: 192m
+    restart: unless-stopped
+  live:
+    mem_limit: 192m
+    restart: unless-stopped
+  api:
+    image: xiaohe-plane-backend:v1.5.0-xh2
+    mem_limit: 640m
+    restart: unless-stopped
+    extra_hosts:
+      - "accounts.xiaohe.team:host-gateway"
+    environment:
+      XIAOHE_ACCOUNTS_URL: https://accounts.xiaohe.team
+      XIAOHE_OAUTH_CLIENT_ID: plane
+      XIAOHE_OAUTH_REDIRECT: https://plane.xiaohe.team/auth/xiaohe/callback/
+      XIAOHE_SSO_EMAIL_MAP: lai.zhengshou@outlook.com=laizhengsh@mail.sysu.edu.cn
+  worker:
+    mem_limit: 384m
+    restart: unless-stopped
+  beat-worker:
+    mem_limit: 192m
+    restart: unless-stopped
+  migrator:
+    mem_limit: 384m
+    restart: "no"
+  plane-db:
+    mem_limit: 1024m
+    restart: unless-stopped
+  plane-redis:
+    mem_limit: 192m
+    restart: unless-stopped
+  plane-mq:
+    mem_limit: 192m
+    restart: unless-stopped
+  plane-minio:
+    mem_limit: 192m
+    restart: unless-stopped
+  proxy:
+    mem_limit: 128m
+    restart: unless-stopped
+    # Staging: bind to loopback or tailnet only. Expose through nginx after DNS and auth are set.
+    ports: !override
+      - "${PLANE_BIND_IP:-127.0.0.1}:8080:80"

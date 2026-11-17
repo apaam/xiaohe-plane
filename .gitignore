@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.DS_Store
+plane.env
+*.token
+admin-password
+backups/

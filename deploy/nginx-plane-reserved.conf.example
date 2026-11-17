@@ -1,0 +1,32 @@
+# Reserved public entry for plane.xiaohe.team.
+# DNS + TLS are live, but Plane is NOT proxied yet: HTTPS returns 503 until
+# auth is chosen. Replace the 443 location with the proxy block from
+# nginx-plane.conf.example when switching.
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name plane.xiaohe.team;
+
+    location ^~ /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name plane.xiaohe.team;
+
+    ssl_certificate     /etc/letsencrypt/live/plane.xiaohe.team/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/plane.xiaohe.team/privkey.pem;
+
+    # Deliberately not proxying to Plane yet.
+    location / {
+        return 503;
+    }
+}

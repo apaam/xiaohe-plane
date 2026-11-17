@@ -1,0 +1,15 @@
+# xiaohe-plane 项目统一配置（真源）
+#
+# 自托管 Plane + xiaohe accounts SSO。上游 makeplane/plane CE v1.5.0（AGPL-3.0）。
+
+name: xiaohe-plane
+product_id: plane
+domain: plane.xiaohe.team
+port: 8080
+upstream:
+  repo: makeplane/plane
+  release: v1.5.0
+deploy:
+  script: deploy/README.md
+  target: ts-xiaohe
+  ci: none
