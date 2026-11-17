@@ -7,7 +7,7 @@
 - 实例：`https://plane.xiaohe.team`，登录走 xiaohe accounts SSO；本地 `/sign-in/` 保留为 break-glass。
 - 个人工作台：`课题组 / research`，项目 `工作台 / WORK`。
 - agent：`agent-bot@xiaohe.local` + Plane MCP。
-- SSO：后端适配 `auth/plane`，自定义 `api` 镜像；前端未改。
+- SSO：后端适配 `auth/plane`，自定义 `api` 镜像；前端补丁见 `web/patches`。
 
 ## 结构
 
@@ -22,7 +22,7 @@ scripts/                部署/升级入口（建设中）
 ## 上游与许可
 
 - 上游：<https://github.com/makeplane/plane>，固定 `v1.5.0` 镜像。
-- 上游是 AGPL-3.0。若对 Plane 做修改并通过网络提供服务，需要按 AGPL 向使用者提供对应源码；本仓就是该源码的落点。
+- 上游是 AGPL-3.0。本仓的修改同样以 AGPL-3.0 提供；对应源码与重建步骤见 `SOURCE.md`，公开地址为 <https://gitea.xiaohe.team/apaam/xiaohe-plane>。
 
 ## 快速入口
 

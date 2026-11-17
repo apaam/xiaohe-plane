@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# xiaohe modification; see SOURCE.md and LICENSE.
+
 from django.urls import path
 
 from plane.authentication.views.xiaohe_sso import xiaohe_callback, xiaohe_start
