@@ -93,7 +93,7 @@
 - PKCE S256；state 一次性；session 存 verifier。
 - `redirect_uri` 只接受 accounts 允许列表中的 plane 回调。
 - `next` 只允许站内相对路径，拒绝 `//` 与外域。
-- 回调失败统一跳到本地 `/sign-in?error=sso`，不泄露 accounts 错误细节。
+- 回调失败跳到 accounts `/login?error=sso`，避免 `/sign-in` 再跳 SSO 形成回环，也不泄露账号细节。
 - 保留 `ENABLE_SIGNUP=0`；SSO 用户创建由适配器控制。
 - 退出同时撤销 accounts refresh token；Plane 与 accounts 不会出现“退出后又被 SSO 登回”的状态。
 - 记录登录审计（email、accounts user id、时间、IP）。
