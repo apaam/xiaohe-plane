@@ -8,23 +8,21 @@
 
 ## 开发项目
 
-Plane 没有子项目；每个代码仓建一个项目，再用 workspace 视图汇总：
+Plane 没有子项目；按产品线建两个项目，项目内用 Module 分代码仓：
 
-| 项目 | identifier | 仓库 |
+| 项目 | identifier | Modules |
 |---|---|---|
-| xiaohe agent | XHA | `xiaohe-agent` |
-| xiaohe reader | XHR | `xiaohe-reader` |
-| xiaohe cluster | XHC | `xiaohe-cluster` |
-| xiaohe plane | XHP | `xiaohe-plane` |
-| phynexis viewer | PXV | `phynexis-viewer` |
+| xiaohe dev | XHD | agent / reader / cluster / plane |
+| phynexis dev | PXD | core / viewer / graph / server |
 
+- 旧的单仓项目 XHA/XHR/XHC/XHP/PXV 已归档；PXV-1 已迁移为 **PXD-1**（viewer 模块），
+  附件、认领记录和排查结论都保留。
 - 汇总视图：`https://plane.xiaohe.team/research/workspace-views/b67f5a09-8e05-4402-941f-329502b71dbc/`
-- 视图已固定过滤这五个项目，工作台的任务不会混进来。
-- 图标：开发项目统一用 indigo（`#5e6ad2`）+ 功能图标（agent `smart_toy`、reader `menu_book`、
-  cluster `dns`、plane `flight`、viewer `view_in_ar`），工作台用绿色 `home`。
+- 视图已固定过滤 XHD + PXD，工作台的任务不会混进来。
+- 图标：XHD `code`、PXD `science`，统一 indigo（`#5e6ad2`）；工作台用绿色 `home`。
 - Plane 的 API 新建项目时 `logo_props` 只读，没显式指定会随机取图标；要改在项目设置里操作。
-- Plane 项目名不允许连字符，所以用空格；identifier 仍按代码仓缩写。
-- 分支与 commit 带 identifier，如 `XHA-12: ...`；Gitea PR 里贴 Plane 链接。
+- Plane 项目名不允许连字符，所以用空格；identifier 用产品线缩写。
+- 分支与 commit 带 identifier，如 `XHD-12: ...` 或 `PXD-3: ...`；module 说明涉及哪个仓。
 
 ## 每天怎么用
 
