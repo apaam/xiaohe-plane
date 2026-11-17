@@ -3,16 +3,17 @@
 
 """xiaohe accounts SSO for Plane (authorization code + PKCE).
 
-Two GET endpoints:
+Endpoints:
     /auth/xiaohe/start/?next=/research/
     /auth/xiaohe/callback/
+    /auth/xiaohe/logout/        (POST, clears both Plane and accounts sessions)
 
 Accounts issues a one-time code and returns {user: {id, email, is_admin}}.
 Plane links/creates a local user by email and writes a normal Django session.
 For clients that require a subscription, accounts also returns
 user.subscription.expires_at; the session is capped at that instant so a
-lapsed plan cannot keep an old login alive. Local password login remains
-available as a break-glass path.
+lapsed plan cannot keep an old login alive. Local password auth remains
+available as an API break-glass path but its web pages redirect to SSO.
 """
 
 from __future__ import annotations
@@ -29,8 +30,9 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 
+from django.contrib.auth import logout
 from django.http import HttpResponseRedirect
-from django.views.decorators.http import require_GET
+from django.views.decorators.http import require_GET, require_POST
 
 from plane.authentication.utils.login import user_login
 from plane.db.models import User, WorkspaceMember
@@ -50,6 +52,7 @@ REDIRECT_URI = os.environ.get(
 )
 DEFAULT_NEXT = "/research/"
 ONBOARDING_NEXT = "/onboarding/"
+PLANE_HOME = os.environ.get("XIAOHE_PLANE_HOME", "https://plane.xiaohe.team/")
 
 # Optional comma-separated aliases: accounts-email=plane-email.
 # Example: some@example.com=alias@example.com
@@ -83,7 +86,23 @@ def _safe_next(value: str | None) -> str:
 
 
 def _redirect_error() -> HttpResponseRedirect:
-    return HttpResponseRedirect("/sign-in/?error=sso")
+    # Do not bounce through /sign-in: that route now redirects to SSO, so a
+    # failed callback would loop. Send the browser to the accounts login page
+    # instead; the user can retry Plane from the apps portal.
+    return HttpResponseRedirect(f"{ACCOUNTS_URL}/login?error=sso")
+
+
+@require_POST
+def xiaohe_logout(request):
+    """Sign out of Plane, then out of accounts.
+
+    Clearing only the Plane session is not enough: the next request would hit
+    SSO and sign the browser straight back in from the still-live accounts
+    session, which looks like sign-out did nothing.
+    """
+    logout(request)
+    next_url = urllib.parse.quote(PLANE_HOME, safe="")
+    return HttpResponseRedirect(f"{ACCOUNTS_URL}/logout?next={next_url}")
 
 
 @require_GET

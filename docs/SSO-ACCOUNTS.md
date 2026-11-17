@@ -1,9 +1,9 @@
 # xiaohe accounts SSO：方案与落地
 
-- 状态：**已实现**（`xiaohe-plane-backend:v1.5.0-xh6`）；本地登录保留 break-glass。
+- 状态：**已实现**（backend xh8 + web xh6）；本地密码 API 保留 break-glass，登录/注册/密码页统一跳 accounts。
 - 准入：`client_id=plane` 需要账号有有效的小荷订阅（管理员豁免）；未通过返回 402 `subscription_required`。
 
-- 目标：Plane 登录改走 xiaohe accounts，保留本地登录作为 break-glass。
+- 目标：Plane 登录、注册、找回密码全部走 xiaohe accounts；本地密码 API 保留作 break-glass，但不提供网页入口。
 - 不做 OIDC：xiaohe accounts 已有给 cluster / skills 用的 OAuth2 授权码 + PKCE，Plane 只需要一个后端适配。
 - 计费单位是账号，不是设备：Plane 是 web 服务，用账号订阅判定；workspace/project 成员关系另管权限。
 
@@ -48,7 +48,7 @@
 3. 测试：`redirect.test.ts` 增加 plane 的正/负用例；OAuth store 增加 client 校验。
 4. 部署 accounts（Go + web 重建）；现有 cluster / skills / download 客户端不受影响。
 
-## Plane 侧改动（后端，不改前端）
+## Plane 侧改动
 
 新增一个 Django 视图模块，例如 `auth/plane/xiaohe.py`：
 
@@ -66,15 +66,17 @@
   - 调 `plane.authentication.utils.login.user_login(request, user, is_app=False)` 写 Plane session；
     订阅 claim 存在时 `request.session.set_expiry(min(默认 7 天, 订阅到期))`。
   - 302 到 session 里的 `next`（只允许站内相对路径）或 `/research/`；无 workspace 的新用户落 `/onboarding/`。
-- URL 接入：在 Plane 的 URLconf 加两条路由；不改 React 前端。
-- 构建：`FROM makeplane/plane-backend:v1.5.0`，复制模块并 patch URLconf；镜像 tag `xiaohe-plane-backend:v1.5.0-xh6`。
-- compose override 只替换 `api` 的 image；worker/beat 可继续用上游镜像（不涉及登录）。
+- URL 接入：在 Plane 的 URLconf 加 start/callback/logout 三条路由。
+- 前端补丁 `0007-sso-only-auth.patch`：登录、注册、找回/重设密码页跳 SSO；未登录访问受保护页面直接跳 SSO；退出表单改到 `/auth/xiaohe/logout/`。
+- 构建：`FROM makeplane/plane-backend:v1.5.0`，复制模块并 patch URLconf；镜像 tag `xiaohe-plane-backend:v1.5.0-xh8`。
+- `/auth/xiaohe/logout/`（POST，带 CSRF）：先清 Plane session，再跳 accounts `/logout?next=https://plane.xiaohe.team/`，同时清 accounts 会话；否则 SSO 会立刻把用户登回去。
+- compose override 替换 `api` 和 `web` 镜像；worker/beat 继续用上游镜像。
 
 ## 入口
 
 - SSO 登录入口：`https://plane.xiaohe.team/auth/xiaohe/start/?next=/research/`
-- apps 门户的 Plane 链接改为该入口；旧本地登录仍可从 `/sign-in` 使用。
-- 以后要“Plane 登录页上也放按钮”，再重建前端；第一阶段不做。
+- apps 门户的 Plane 链接改为该入口。
+- `/`、`/sign-in`、`/sign-up`、`/login`、`/register`、`/accounts/*password*` 均跳 accounts；本地密码 API 只作 break-glass，无网页入口。
 
 ## 用户与权限
 
@@ -93,22 +95,24 @@
 - `next` 只允许站内相对路径，拒绝 `//` 与外域。
 - 回调失败统一跳到本地 `/sign-in?error=sso`，不泄露 accounts 错误细节。
 - 保留 `ENABLE_SIGNUP=0`；SSO 用户创建由适配器控制。
+- 退出同时撤销 accounts refresh token；Plane 与 accounts 不会出现“退出后又被 SSO 登回”的状态。
 - 记录登录审计（email、accounts user id、时间、IP）。
 
 ## 迁移步骤
 
 1. [x] accounts 加 plane client / redirect，测试并部署。
-2. [x] 构建 `xiaohe-plane-backend:v1.5.0-xh6`，staging + mock accounts 跑通。
+2. [x] 构建 `xiaohe-plane-backend:v1.5.0-xh8`，staging + mock accounts 跑通。
 3. [x] compose 替换 api 镜像；旧镜像可回滚。
 4. [x] apps 门户指向 `/auth/xiaohe/start/?next=/research/`。
-5. [ ] 真实 accounts 账号浏览器登录验收；本地登录保留 break-glass。
+5. [ ] 真实 accounts 账号浏览器登录验收；本地密码仅作 API break-glass。
 6. [x] 订阅门槛：`/v1/oauth/authorize` 对 plane 检查有效订阅；`OAuthAuthorizePage` 处理 402 并回跳。
+7. [x] 原生登录/注册/密码页跳 SSO；退出清 Plane + accounts 会话。
 
 ## 回滚
 
 - compose 把 `api` 镜像切回 `makeplane/plane-backend:v1.5.0`，重建 api。
 - accounts 的 plane client 可以保留，不影响其他客户端。
-- 本地登录始终可用，SSO 故障不锁死管理员。
+- 本地密码 API 仍保留；管理员可通过 API break-glass，网页入口已跳 SSO。
 
 ## 网络修复（2026-11-17）
 
