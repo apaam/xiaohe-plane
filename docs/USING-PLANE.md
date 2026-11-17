@@ -58,6 +58,9 @@ Safari 打开 `https://plane.xiaohe.team/auth/xiaohe/start/?next=/research/`，�
 ## 账号与协作
 
 - 有 xiaohe accounts 的同事首次 SSO 登录会自动建 Plane 用户，再由管理员加入 workspace/project。
+- `Agent Bot` 原本是 bot 用户，Plane 的负责人候选会排除 bot；本实例已把该账号的
+  `is_bot` 改为 `false`（名称仍是 Agent Bot），所以能在下拉框里选到。升级/重装后若选不到，
+  重设该字段即可。
 - 没有 accounts 的临时账号用 `xiaohe-plane/deploy/create_user.py` 开通。
 - 一个合作组一个 workspace；个人工作台不要放合作方内容。
 - 不给合作者 mini 的 shell/tailnet 权限；只给 Plane 账号。
