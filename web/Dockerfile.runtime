@@ -1,0 +1,9 @@
+# Reuse the upstream web image (Caddy already built and patched by Plane)
+# and only replace the compiled frontend assets.
+ARG UPSTREAM_IMAGE=makeplane/plane-frontend:v1.5.0
+ARG BUILD_IMAGE=xiaohe-plane-web-build:v1.5.0
+
+FROM ${BUILD_IMAGE} AS built
+FROM ${UPSTREAM_IMAGE}
+
+COPY --from=built /app/apps/web/build/client /usr/share/caddy/html
