@@ -111,6 +111,16 @@ override 里 proxy 的 `ports` 使用 `${PLANE_BIND_IP:-127.0.0.1}:8080:80`；�
 
 ## 7. 运维
 
+恢复数据库或手工创建用户后，跑一次 Profile 回填（避免 `/users/me/profile/` 404 把前端打进维护页）：
+
+```bash
+sudo docker compose --env-file plane.env -f docker-compose.yaml -f docker-compose.override.yml \
+  exec -T api sh -c "python manage.py shell < /tmp/ensure_profiles.py"
+```
+
+脚本在 `deploy/ensure_profiles.py`；SSO 登录也会为缺失 Profile 的用户自动补建。
+
+
 ```bash
 # 状态
 sudo docker compose --env-file plane.env -f docker-compose.yaml -f docker-compose.override.yml ps

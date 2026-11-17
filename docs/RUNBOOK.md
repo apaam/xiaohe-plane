@@ -78,6 +78,8 @@ uvx plane-mcp-server stdio
 
 ## 6. 备份与升级
 
+- 恢复数据库或手工建用户后运行 `deploy/ensure_profiles.py`，补齐 `Profile` 并标记已有 workspace 的用户 onboarded。
+
 ```bash
 # 每日
 docker compose --env-file plane.env -f docker-compose.yaml -f docker-compose.override.yml \
