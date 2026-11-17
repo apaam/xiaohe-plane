@@ -20,6 +20,9 @@ Plane 没有子项目；每个代码仓建一个项目，再用 workspace 视图
 
 - 汇总视图：`https://plane.xiaohe.team/research/workspace-views/b67f5a09-8e05-4402-941f-329502b71dbc/`
 - 视图已固定过滤这五个项目，工作台的任务不会混进来。
+- 图标：开发项目统一用 indigo（`#5e6ad2`）+ 功能图标（agent `smart_toy`、reader `menu_book`、
+  cluster `dns`、plane `flight`、viewer `view_in_ar`），工作台用绿色 `home`。
+- Plane 的 API 新建项目时 `logo_props` 只读，没显式指定会随机取图标；要改在项目设置里操作。
 - Plane 项目名不允许连字符，所以用空格；identifier 仍按代码仓缩写。
 - 分支与 commit 带 identifier，如 `XHA-12: ...`；Gitea PR 里贴 Plane 链接。
 
