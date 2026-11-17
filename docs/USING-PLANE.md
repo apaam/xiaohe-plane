@@ -15,8 +15,8 @@ Plane 没有子项目；按产品线建两个项目，项目内用 Module 分代
 | xiaohe dev | XHD | agent / reader / cluster / plane |
 | phynexis dev | PXD | core / viewer / graph / server |
 
-- 旧的单仓项目 XHA/XHR/XHC/XHP/PXV 已归档；PXV-1 已迁移为 **PXD-1**（viewer 模块），
-  附件、认领记录和排查结论都保留。
+- 旧的单仓项目 XHA/XHR/XHC/XHP 已删除；PXV 保留归档（作为迁移来源）。
+- PXV-1 已迁移为 **PXD-1**（viewer 模块），附件、认领记录和排查结论都保留。
 - 汇总视图：`https://plane.xiaohe.team/research/workspace-views/b67f5a09-8e05-4402-941f-329502b71dbc/`
 - 视图已固定过滤 XHD + PXD，工作台的任务不会混进来。
 - 图标：XHD `code`、PXD `science`，统一 indigo（`#5e6ad2`）；工作台用绿色 `home`。
