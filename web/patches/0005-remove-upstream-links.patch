@@ -1,0 +1,260 @@
+diff --git a/apps/web/app/(all)/workspace-invitations/page.tsx b/apps/web/app/(all)/workspace-invitations/page.tsx
+index 91b7113..7804cce 100644
+--- a/apps/web/app/(all)/workspace-invitations/page.tsx
++++ b/apps/web/app/(all)/workspace-invitations/page.tsx
+@@ -135,20 +135,6 @@ function WorkspaceInvitationPage() {
+                     render={<Link href="/" />}
+                   />
+                   <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
+-                    <AnchorButton
+-                      variant="secondary"
+-                      size="md"
+-                      href="https://github.com/makeplane"
+-                      external
+-                      label="Star us on GitHub"
+-                    />
+-                    <AnchorButton
+-                      variant="secondary"
+-                      size="md"
+-                      href="https://forum.plane.so"
+-                      external
+-                      label="Join our community of active creators"
+-                    />
+                     <AnchorButton
+                       variant="secondary"
+                       size="md"
+diff --git a/apps/web/components/account/terms-and-conditions.tsx b/apps/web/components/account/terms-and-conditions.tsx
+index ef69141..9de5cec 100644
+--- a/apps/web/components/account/terms-and-conditions.tsx
++++ b/apps/web/components/account/terms-and-conditions.tsx
+@@ -5,41 +5,20 @@
+  */
+ 
+ import React from "react";
+-import Link from "next/link";
+ import { EAuthModes } from "@plane/constants";
+ 
+ interface TermsAndConditionsProps {
+   authType?: EAuthModes;
+ }
+ 
+-// Constants for better maintainability
+-const LEGAL_LINKS = {
+-  termsOfService: "https://plane.so/legals/terms-and-conditions",
+-  privacyPolicy: "https://plane.so/legals/privacy-policy",
+-} as const;
+-
+-const MESSAGES = {
+-  [EAuthModes.SIGN_UP]: "By creating an account",
+-  [EAuthModes.SIGN_IN]: "By signing in",
+-} as const;
+-
+-// Reusable link component to reduce duplication
+-function LegalLink({ href, children }: { href: string; children: React.ReactNode }) {
+-  return (
+-    <Link href={href} className="text-secondary" target="_blank" rel="noopener noreferrer">
+-      <span className="text-body-xs-medium underline hover:cursor-pointer">{children}</span>
+-    </Link>
+-  );
+-}
+-
+ export function TermsAndConditions({ authType = EAuthModes.SIGN_IN }: TermsAndConditionsProps) {
++  const message =
++    authType === EAuthModes.SIGN_UP
++      ? "By creating an account, you agree to the workspace policies."
++      : "By signing in, you agree to the workspace policies.";
+   return (
+     <div className="flex items-center justify-center">
+-      <p className="text-center text-body-xs-regular whitespace-pre-line text-tertiary">
+-        {`${MESSAGES[authType]}, you understand and agree to \n our `}
+-        <LegalLink href={LEGAL_LINKS.termsOfService}>Terms of Service</LegalLink> and{" "}
+-        <LegalLink href={LEGAL_LINKS.privacyPolicy}>Privacy Policy</LegalLink>.
+-      </p>
++      <p className="text-center text-body-xs-regular whitespace-pre-line text-tertiary">{message}</p>
+     </div>
+   );
+ }
+diff --git a/apps/web/components/power-k/config/help-commands.ts b/apps/web/components/power-k/config/help-commands.ts
+index 3481b9f..662d79f 100644
+--- a/apps/web/components/power-k/config/help-commands.ts
++++ b/apps/web/components/power-k/config/help-commands.ts
+@@ -4,17 +4,11 @@
+  * See the LICENSE file for details.
+  */
+ 
+-import { ChatOutline, DocumentationOutline, Github, RocketOutline } from "@makeplane/propel/icons";
+-// components
++import { RocketOutline } from "@makeplane/propel/icons";
+ import type { TPowerKCommandConfig } from "@/components/power-k/core/types";
+-// hooks
+ import { usePowerK } from "@/hooks/store/use-power-k";
+ 
+-/**
+- * Help commands - Help related commands
+- */
+ export const usePowerKHelpCommands = (): TPowerKCommandConfig[] => {
+-  // store
+   const { toggleShortcutsListModal } = usePowerK();
+ 
+   return [
+@@ -30,44 +24,5 @@ export const usePowerKHelpCommands = (): TPowerKCommandConfig[] => {
+       isVisible: () => true,
+       closeOnSelect: true,
+     },
+-    {
+-      id: "open_plane_documentation",
+-      type: "action",
+-      group: "help",
+-      i18n_title: "power_k.help_actions.open_plane_documentation",
+-      icon: DocumentationOutline,
+-      action: () => {
+-        window.open("https://docs.plane.so/", "_blank", "noopener,noreferrer");
+-      },
+-      isEnabled: () => true,
+-      isVisible: () => true,
+-      closeOnSelect: true,
+-    },
+-    {
+-      id: "join_forum",
+-      type: "action",
+-      group: "help",
+-      i18n_title: "power_k.help_actions.join_forum",
+-      icon: ChatOutline,
+-      action: () => {
+-        window.open("https://forum.plane.so", "_blank", "noopener,noreferrer");
+-      },
+-      isEnabled: () => true,
+-      isVisible: () => true,
+-      closeOnSelect: true,
+-    },
+-    {
+-      id: "report_bug",
+-      type: "action",
+-      group: "help",
+-      i18n_title: "power_k.help_actions.report_bug",
+-      icon: Github,
+-      action: () => {
+-        window.open("https://github.com/makeplane/plane/issues/new/choose", "_blank", "noopener,noreferrer");
+-      },
+-      isEnabled: () => true,
+-      isVisible: () => true,
+-      closeOnSelect: true,
+-    },
+   ];
+ };
+diff --git a/apps/web/components/workspace/sidebar/help-section/root.tsx b/apps/web/components/workspace/sidebar/help-section/root.tsx
+index f267fb6..a0cc34b 100644
+--- a/apps/web/components/workspace/sidebar/help-section/root.tsx
++++ b/apps/web/components/workspace/sidebar/help-section/root.tsx
+@@ -4,76 +4,53 @@
+  * See the LICENSE file for details.
+  */
+ 
+-import React, { useState } from "react";
++import React from "react";
+ import { observer } from "mobx-react";
+-import { HelpOutline, PagesOutline, UserAltOutline } from "@makeplane/propel/icons";
+-import { TALK_TO_SALES_URL } from "@plane/constants";
++import { HelpOutline } from "@makeplane/propel/icons";
+ import { useTranslation } from "@plane/i18n";
+-// ui
+-import { Icon } from "@makeplane/propel/components/icon";
+-import { Menu, MenuContent, MenuFooter, MenuItem, MenuSeparator, MenuTrigger } from "@makeplane/propel/components/menu";
++import { Menu, MenuContent, MenuFooter, MenuItem, MenuTrigger } from "@makeplane/propel/components/menu";
+ import { Tooltip } from "@makeplane/propel/components/tooltip";
+ import { IconButton } from "@makeplane/propel/elements/icon-button";
+-// components
+-import { ProductUpdatesModal } from "@/components/global";
+ import { PlaneVersionNumber } from "@/components/global/version-number";
+-// hooks
+ import { usePowerK } from "@/hooks/store/use-power-k";
+ 
+ export const HelpMenuRoot = observer(function HelpMenuRoot() {
+-  // store hooks
+   const { t } = useTranslation();
+   const { toggleShortcutsListModal } = usePowerK();
+-  // states
+-  const [isProductUpdatesModalOpen, setProductUpdatesModalOpen] = useState(false);
+ 
+   return (
+-    <>
+-      <ProductUpdatesModal isOpen={isProductUpdatesModalOpen} handleClose={() => setProductUpdatesModalOpen(false)} />
+-
+-      <Menu>
+-        <Tooltip label={t("power_k.group_titles.help")} side="bottom">
+-          <MenuTrigger
+-            render={
+-              <IconButton
+-                variant="ghost"
+-                size="md"
+-                aria-label={t("power_k.group_titles.help")}
+-                render={<button type="button" className="data-popup-open:bg-layer-transparent-active" />}
+-              >
+-                <HelpOutline className="size-4.5" />
+-              </IconButton>
+-            }
+-          />
+-        </Tooltip>
+-        <MenuContent
+-          side="bottom"
+-          align="end"
+-          footer={
+-            <MenuFooter>
+-              <PlaneVersionNumber />
+-            </MenuFooter>
++    <Menu>
++      <Tooltip label={t("power_k.group_titles.help")} side="bottom">
++        <MenuTrigger
++          render={
++            <IconButton
++              variant="ghost"
++              size="md"
++              aria-label={t("power_k.group_titles.help")}
++              render={<button type="button" className="data-popup-open:bg-layer-transparent-active" />}
++            >
++              <HelpOutline className="size-4.5" />
++            </IconButton>
++          }
++        />
++      </Tooltip>
++      <MenuContent
++        side="bottom"
++        align="end"
++        footer={
++          <MenuFooter>
++            <PlaneVersionNumber />
++          </MenuFooter>
++        }
++      >
++        <MenuItem label={t("keyboard_shortcuts")} onClick={() => toggleShortcutsListModal(true)} />
++        <MenuItem
++          label="Source (AGPL-3.0)"
++          onClick={() =>
++            window.open("https://gitea.xiaohe.team/apaam/xiaohe-plane", "_blank", "noopener,noreferrer")
+           }
+-        >
+-          <MenuItem
+-            icon={<Icon icon={PagesOutline} tint="secondary" />}
+-            label={t("documentation")}
+-            onClick={() => window.open("https://go.plane.so/p-docs", "_blank")}
+-          />
+-          <MenuItem
+-            icon={<Icon icon={UserAltOutline} tint="secondary" />}
+-            label={t("contact_sales")}
+-            onClick={() => window.open(TALK_TO_SALES_URL, "_blank", "noopener,noreferrer")}
+-          />
+-          <MenuSeparator />
+-          <MenuItem label={t("keyboard_shortcuts")} onClick={() => toggleShortcutsListModal(true)} />
+-          <MenuItem label={t("whats_new")} onClick={() => setProductUpdatesModalOpen(true)} />
+-          <MenuItem
+-            label="Forum"
+-            onClick={() => window.open("https://forum.plane.so", "_blank", "noopener,noreferrer")}
+-          />
+-        </MenuContent>
+-      </Menu>
+-    </>
++        />
++      </MenuContent>
++    </Menu>
+   );
+ });
