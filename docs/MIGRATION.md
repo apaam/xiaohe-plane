@@ -23,7 +23,8 @@
 
 ### 运行时
 
-- 自定义镜像 `xiaohe-plane-backend:v1.5.0-xh2`（SSO + 邮箱映射 + hairpin 修复）。
+- 自定义镜像 `xiaohe-plane-backend:v1.5.0-xh5`（SSO + 邮箱映射 + hairpin 修复 +
+  Page 图片 inline 补丁）。
 - 自定义前端 `xiaohe-plane-web:v1.5.0-xh1`：去掉顶栏 GitHub 加星、侧栏 Community
   徽标、登录页上游营销、首页快速入门引导；补丁在 `web/patches/`，构建脚本 `web/build.sh`。
 - `api`、`web` 仅替换镜像；worker/beat/proxy 仍用上游 v1.5.0。

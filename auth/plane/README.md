@@ -6,9 +6,10 @@
 
 - `xiaohe_sso.py`：`/auth/xiaohe/start/` 与 `/auth/xiaohe/callback/`。
 - `urls_xiaohe.py`：两条路由。
-- `patch_urls.py`：构建时把路由挂进 Plane 的 `authentication/urls.py`。
+- `patch_urls.py`：构建时把路由挂进 Plane 的 `authentication/urls.py`，并加载 Page 图片补丁。
+- `asset_inline_patch.py`：让 Page 里的图片以 inline 方式返回，避免显示 “Error loading image”。
 - `Dockerfile`：基于 `makeplane/plane-backend:v1.5.0`。
-- `build.sh`：构建 `xiaohe-plane-backend:v1.5.0-xh2`。
+- `build.sh`：构建 `xiaohe-plane-backend:v1.5.0-xh5`。
 
 ## 环境变量
 
@@ -31,7 +32,7 @@ cd auth/plane
 ```bash
 ssh ts-xiaohe 'mkdir -p ~/xiaohe-plane-auth'
 scp -q auth/plane/* ts-xiaohe:~/xiaohe-plane-auth/
-ssh ts-xiaohe 'cd ~/xiaohe-plane-auth && sudo docker build -t xiaohe-plane-backend:v1.5.0-xh2 .'
+ssh ts-xiaohe 'cd ~/xiaohe-plane-auth && sudo docker build -t xiaohe-plane-backend:v1.5.0-xh5 .'
 ```
 
 ## 部署
@@ -40,7 +41,7 @@ ssh ts-xiaohe 'cd ~/xiaohe-plane-auth && sudo docker build -t xiaohe-plane-backe
 
 ```yaml
   api:
-    image: xiaohe-plane-backend:v1.5.0-xh2
+    image: xiaohe-plane-backend:v1.5.0-xh5
     environment:
       XIAOHE_ACCOUNTS_URL: https://accounts.xiaohe.team
       XIAOHE_OAUTH_CLIENT_ID: plane

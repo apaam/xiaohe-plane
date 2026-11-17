@@ -28,6 +28,9 @@ from django.views.decorators.http import require_GET
 from plane.authentication.utils.login import user_login
 from plane.db.models import User
 
+# Serve Page images inline; keep the download behaviour for attachments.
+from . import asset_inline_patch  # noqa: F401
+
 logger = logging.getLogger(__name__)
 
 ACCOUNTS_URL = os.environ.get(
