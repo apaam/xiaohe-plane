@@ -1,6 +1,6 @@
 # xiaohe accounts SSO：方案与落地
 
-- 状态：**已实现**（backend xh8 + web xh6）；本地密码 API 保留 break-glass，登录/注册/密码页统一跳 accounts。
+- 状态：**已实现**（backend xh9 + web xh6）；本地密码 API 保留 break-glass，登录/注册/密码页统一跳 accounts。
 - 准入：`client_id=plane` 需要账号有有效的小荷订阅（管理员豁免）；未通过返回 402 `subscription_required`。
 
 - 目标：Plane 登录、注册、找回密码全部走 xiaohe accounts；本地密码 API 保留作 break-glass，但不提供网页入口。
@@ -65,18 +65,19 @@
   - 校验订阅 claim；不活跃或已过期直接回登录错误。
   - 调 `plane.authentication.utils.login.user_login(request, user, is_app=False)` 写 Plane session；
     订阅 claim 存在时 `request.session.set_expiry(min(默认 7 天, 订阅到期))`。
-  - 302 到 session 里的 `next`（只允许站内相对路径）或 `/research/`；无 workspace 的新用户落 `/onboarding/`。
+  - 302 到 session 里的 `next`（只允许站内相对路径）；没有 `next` 时落到用户最后访问/最早加入的 workspace，无 workspace 则落 `/onboarding/` 自建。
 - URL 接入：在 Plane 的 URLconf 加 start/callback/logout 三条路由。
 - 前端补丁 `0007-sso-only-auth.patch`：登录、注册、找回/重设密码页跳 SSO；未登录访问受保护页面直接跳 SSO；退出表单改到 `/auth/xiaohe/logout/`。
-- 构建：`FROM makeplane/plane-backend:v1.5.0`，复制模块并 patch URLconf；镜像 tag `xiaohe-plane-backend:v1.5.0-xh8`。
+- 构建：`FROM makeplane/plane-backend:v1.5.0`，复制模块并 patch URLconf；镜像 tag `xiaohe-plane-backend:v1.5.0-xh9`。
 - `/auth/xiaohe/logout/`（POST，带 CSRF）：先清 Plane session，再跳 accounts `/logout?next=https://plane.xiaohe.team/`，同时清 accounts 会话；否则 SSO 会立刻把用户登回去。
 - compose override 替换 `api` 和 `web` 镜像；worker/beat 继续用上游镜像。
 
 ## 入口
 
-- SSO 登录入口：`https://plane.xiaohe.team/auth/xiaohe/start/?next=/research/`
-- apps 门户的 Plane 链接改为该入口。
+- SSO 登录入口：`https://plane.xiaohe.team/auth/xiaohe/start/`（可带 `?next=/path/` 指定落点）。
+- apps 门户的 Plane 链接改为无 `next` 的入口，由 SSO 解析用户自己的 workspace。
 - `/`、`/sign-in`、`/sign-up`、`/login`、`/register`、`/accounts/*password*` 均跳 accounts；本地密码 API 只作 break-glass，无网页入口。
+- app portal 和 nginx 根入口不再写死 `/research/`；用户登录后落到自己的 workspace，没有 workspace 则进 onboarding 自建。
 
 ## 用户与权限
 
@@ -101,12 +102,13 @@
 ## 迁移步骤
 
 1. [x] accounts 加 plane client / redirect，测试并部署。
-2. [x] 构建 `xiaohe-plane-backend:v1.5.0-xh8`，staging + mock accounts 跑通。
+2. [x] 构建 `xiaohe-plane-backend:v1.5.0-xh9`，staging + mock accounts 跑通。
 3. [x] compose 替换 api 镜像；旧镜像可回滚。
-4. [x] apps 门户指向 `/auth/xiaohe/start/?next=/research/`。
+4. [x] apps 门户指向 `/auth/xiaohe/start/`。
 5. [ ] 真实 accounts 账号浏览器登录验收；本地密码仅作 API break-glass。
 6. [x] 订阅门槛：`/v1/oauth/authorize` 对 plane 检查有效订阅；`OAuthAuthorizePage` 处理 402 并回跳。
 7. [x] 原生登录/注册/密码页跳 SSO；退出清 Plane + accounts 会话。
+8. [x] 默认落点改为用户最后访问/最早加入的 workspace；无 workspace 走 onboarding。
 
 ## 回滚
 

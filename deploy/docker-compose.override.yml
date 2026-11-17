@@ -15,7 +15,7 @@ services:
     mem_limit: 192m
     restart: unless-stopped
   api:
-    image: xiaohe-plane-backend:v1.5.0-xh8
+    image: xiaohe-plane-backend:v1.5.0-xh9
     mem_limit: 640m
     restart: unless-stopped
     extra_hosts:

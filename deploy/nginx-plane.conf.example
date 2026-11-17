@@ -20,9 +20,10 @@ server {
 
     client_max_body_size 50m;
 
-    # Root always enters SSO; /auth/xiaohe/start/ redirects authenticated users onward.
+    # Root enters SSO without a deep link; the SSO callback resolves the
+    # user to their last/first workspace, or onboarding when they have none.
     location = / {
-        return 302 /auth/xiaohe/start/?next=/research/;
+        return 302 /auth/xiaohe/start/;
     }
 
     location / {

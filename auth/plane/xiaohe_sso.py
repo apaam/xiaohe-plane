@@ -35,7 +35,7 @@ from django.http import HttpResponseRedirect
 from django.views.decorators.http import require_GET, require_POST
 
 from plane.authentication.utils.login import user_login
-from plane.db.models import User, WorkspaceMember
+from plane.db.models import Profile, User, Workspace
 
 # Serve Page images inline; keep the download behaviour for attachments.
 from . import asset_inline_patch  # noqa: F401
@@ -50,7 +50,8 @@ REDIRECT_URI = os.environ.get(
     "XIAOHE_OAUTH_REDIRECT",
     "https://plane.xiaohe.team/auth/xiaohe/callback/",
 )
-DEFAULT_NEXT = "/research/"
+# Empty means “no deep link”: resolve the user's own last/first workspace.
+DEFAULT_NEXT = ""
 ONBOARDING_NEXT = "/onboarding/"
 PLANE_HOME = os.environ.get("XIAOHE_PLANE_HOME", "https://plane.xiaohe.team/")
 
@@ -85,6 +86,33 @@ def _safe_next(value: str | None) -> str:
     return value
 
 
+def _default_workspace_path(user: User) -> str:
+    """Where a user lands when the caller did not ask for a specific page.
+
+    Prefer the workspace they last visited (if they still belong to it), then
+    the first workspace they belong to. New users have neither and go to
+    onboarding, where they can create their own workspace or accept an invite.
+    """
+    profile = Profile.objects.filter(user=user).first()
+    workspace = None
+    if profile and profile.last_workspace_id:
+        workspace = Workspace.objects.filter(
+            id=profile.last_workspace_id,
+            workspace_member__member=user,
+            workspace_member__is_active=True,
+        ).first()
+    if workspace is None:
+        workspace = (
+            Workspace.objects.filter(
+                workspace_member__member=user,
+                workspace_member__is_active=True,
+            )
+            .order_by("created_at")
+            .first()
+        )
+    return f"/{workspace.slug}/" if workspace is not None else ONBOARDING_NEXT
+
+
 def _redirect_error() -> HttpResponseRedirect:
     # Do not bounce through /sign-in: that route now redirects to SSO, so a
     # failed callback would loop. Send the browser to the accounts login page
@@ -109,7 +137,7 @@ def xiaohe_logout(request):
 def xiaohe_start(request):
     next_path = _safe_next(request.GET.get("next"))
     if request.user.is_authenticated:
-        return HttpResponseRedirect(next_path)
+        return HttpResponseRedirect(next_path or _default_workspace_path(request.user))
 
     verifier = secrets.token_urlsafe(64)
     state = secrets.token_urlsafe(32)
@@ -248,13 +276,10 @@ def xiaohe_callback(request):
     elif not user.is_active:
         return _redirect_error()
 
-    # A signed-in user with no workspace would land on the “not a member”
-    # screen. Send first-time users to onboarding so open registration can
-    # create its own workspace; an explicit invitation target is left alone.
-    if next_path == DEFAULT_NEXT and not WorkspaceMember.objects.filter(
-        member=user, is_active=True
-    ).exists():
-        next_path = ONBOARDING_NEXT
+    # A deep link (invitation, billing settings, etc.) wins. Otherwise use the
+    # user's own last/first workspace, or onboarding when they have none.
+    if not next_path or next_path == "/":
+        next_path = _default_workspace_path(user)
 
     user.last_login_medium = "xiaohe"
     user.save(update_fields=["last_login_medium"])

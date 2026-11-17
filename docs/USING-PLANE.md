@@ -1,7 +1,8 @@
 # Plane 个人使用速查
 
 - 入口：`https://plane.xiaohe.team/research`
-- 登录：走 xiaohe accounts SSO（apps 门户的 Plane 入口，或 `https://plane.xiaohe.team/auth/xiaohe/start/?next=/research/`）。
+- 登录：走 xiaohe accounts SSO（apps 门户的 Plane 入口，或 `https://plane.xiaohe.team/auth/xiaohe/start/`）。
+- 默认落点：登录后进入你最近访问/最早加入的 workspace；没有 workspace 时进 onboarding，可自建 workspace（创建者即 workspace Admin）。课题组成员可直接用 `?next=/research/` 指定课题组。
 - 准入：账号需有有效的小荷订阅（新注册自带 1 个月试用；管理员豁免）。没有订阅时，accounts 会跳商店页，购买后回到登录流程。
 - 本地 break-glass：`https://plane.xiaohe.team/sign-in/`，管理员密码在 `~/.xiaohe/plane/admin-password`（600）。
 - 当前 workspace：课题组 `/research`
