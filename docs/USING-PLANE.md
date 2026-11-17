@@ -6,6 +6,22 @@
 - 当前 workspace：课题组 `/research`
 - 个人项目：**工作台** `/WORK`（示例项目已归档并改名为“示例项目（可删）”）。
 
+## 开发项目
+
+Plane 没有子项目；四个代码仓各建一个项目，再用 workspace 视图汇总：
+
+| 项目 | identifier | 仓库 |
+|---|---|---|
+| xiaohe agent | XHA | `xiaohe-agent` |
+| xiaohe reader | XHR | `xiaohe-reader` |
+| xiaohe cluster | XHC | `xiaohe-cluster` |
+| xiaohe plane | XHP | `xiaohe-plane` |
+
+- 汇总视图：`https://plane.xiaohe.team/research/workspace-views/b67f5a09-8e05-4402-941f-329502b71dbc/`
+- 视图已固定过滤这四个项目，工作台的任务不会混进来。
+- Plane 项目名不允许连字符，所以用空格；identifier 仍按代码仓缩写。
+- 分支与 commit 带 identifier，如 `XHA-12: ...`；Gitea PR 里贴 Plane 链接。
+
 ## 每天怎么用
 
 1. **早上记任务**：在 工作台 里新建 work item，标题写动词开头的一句话；状态放 `Todo`，需要时间点就填 start/target date。
