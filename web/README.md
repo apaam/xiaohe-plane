@@ -1,13 +1,14 @@
 # Plane web — xiaohe UI cleanup
 
-Plane 上游前端原样构建，只在构建时打四个小补丁，不改业务逻辑：
+Plane 上游前端原样构建，只在构建时打几个小补丁，不改业务逻辑：
 
-| 补丁 | 去掉的内容 |
+| 补丁 | 去掉 / 替换的内容 |
 |---|---|
 | `0001-remove-github-star-link.patch` | 顶栏“在 GitHub 上为我们加星” |
 | `0002-hide-edition-badge.patch` | 侧栏底部 `Community` 版本徽标 |
 | `0003-remove-auth-footer.patch` | 登录页 “Join 10,000+ teams” 与品牌 Logo |
 | `0004-remove-quickstart-guide.patch` | 首页“快速入门指南”引导卡 |
+| `0006-replace-billing-page.patch` | 把上游 Billing & Plans 套餐页换成小荷订阅入口 |
 
 ## 构建
 
@@ -15,7 +16,7 @@ Plane 上游前端原样构建，只在构建时打四个小补丁，不改业�
 
 ```bash
 DOCKER="sudo docker" ./web/build.sh
-# 产物：xiaohe-plane-web:v1.5.0-xh3
+# 产物：xiaohe-plane-web:v1.5.0-xh4
 ```
 
 脚本先 `git clone --depth 1 --branch v1.5.0` 上游源码，重置到 tag，打补丁，再用上游
@@ -27,7 +28,7 @@ DOCKER="sudo docker" ./web/build.sh
 
 ```yaml
   web:
-    image: xiaohe-plane-web:v1.5.0-xh3
+    image: xiaohe-plane-web:v1.5.0-xh4
 ```
 
 仍挂载 `web-Caddyfile`（放宽静态资源限流到 10000/min）。
