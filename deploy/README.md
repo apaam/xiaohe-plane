@@ -7,9 +7,9 @@
 
 | 项 | 值 |
 |---|---|
-| 访问 | `https://plane.xiaohe.team/research`（公网，invite-only） |
+| 访问 | `https://plane.xiaohe.team/research`（公网，订阅准入 + workspace invite-only） |
 | 实例名 | 中山大学 |
-| 管理员 | `laizhengsh@mail.sysu.edu.cn` |
+| 管理员 | `lai.zhengshou@outlook.com` |
 | 密码 | 本机 `~/.xiaohe/plane/admin-password`（600）；VPS `~/plane-selfhost/admin-password`（600） |
 | workspace | 课题组 / `research` |
 | project | 工作台 / `WORK`（示例项目已归档） |

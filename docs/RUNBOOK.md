@@ -1,6 +1,6 @@
 # Plane 协作层 runbook
 
-- 状态：**已公网运行（invite-only）**。
+- 状态：**已公网运行（订阅准入 + invite-only）**。
 - 定位：Plane 只做协作面（目标、节点、issue、讨论、成果链接）；执行面仍是 mini 的 agent-bus / xiaohe server。
 
 ## 1. 已完成（2026-11-17）
@@ -10,7 +10,7 @@
 | 主机 | `ts-xiaohe`（7.4GiB 内存，Plane 容器实际约 1.5GiB） |
 | 版本 | Plane CE `v1.5.0`，镜像固定，不用 `latest` |
 | 部署目录 | `~/plane-selfhost` |
-| 访问 | `https://plane.xiaohe.team/research`（公网，invite-only） |
+| 访问 | `https://plane.xiaohe.team/research`（公网，订阅准入 + invite-only） |
 | 实例 | 中山大学 |
 | 管理员 | `lai.zhengshou@outlook.com`；密码在 `~/.xiaohe/plane/admin-password`（600，break-glass） |
 | 登录 | xiaohe accounts SSO：`/auth/xiaohe/start/?next=/research/`；需有效小荷订阅（管理员豁免）；本地 `/sign-in/` 保留 |

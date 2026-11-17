@@ -52,7 +52,7 @@ DEFAULT_NEXT = "/research/"
 ONBOARDING_NEXT = "/onboarding/"
 
 # Optional comma-separated aliases: accounts-email=plane-email.
-# Example: lai.zhengshou@outlook.com=laizhengsh@mail.sysu.edu.cn
+# Example: some@example.com=alias@example.com
 EMAIL_MAP: dict[str, str] = {}
 for _pair in os.environ.get("XIAOHE_SSO_EMAIL_MAP", "").split(","):
     if "=" in _pair:

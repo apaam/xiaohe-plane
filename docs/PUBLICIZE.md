@@ -1,6 +1,6 @@
 # Plane 公网化清单
 
-- 当前：Plane 已公网运行 `https://plane.xiaohe.team`，invite-only。
+- 当前：Plane 已公网运行 `https://plane.xiaohe.team`，订阅准入 + invite-only。
 - DNS 托管：DNSPod（`active.dnspod.net` / `bootes.dnspod.net`）。
 - `plane.xiaohe.team` 当前无 A 记录。
 
@@ -34,7 +34,7 @@ dig +short plane.xiaohe.team A   # 应返回 159.75.28.184
 
 ```bash
 sudo certbot certonly --webroot -w /var/www/certbot \
-  -d plane.xiaohe.team --email laizhengsh@mail.sysu.edu.cn --agree-tos --non-interactive
+  -d plane.xiaohe.team --email lai.zhengshou@outlook.com --agree-tos --non-interactive
 ```
 
 证书路径：`/etc/letsencrypt/live/plane.xiaohe.team/`。
