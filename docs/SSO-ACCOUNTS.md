@@ -1,9 +1,11 @@
 # xiaohe accounts SSO：方案与落地
 
-- 状态：**已实现**（`xiaohe-plane-backend:v1.5.0-xh2`）；本地登录保留 break-glass。
+- 状态：**已实现**（`xiaohe-plane-backend:v1.5.0-xh6`）；本地登录保留 break-glass。
+- 准入：`client_id=plane` 需要账号有有效的小荷订阅（管理员豁免）；未通过返回 402 `subscription_required`。
 
 - 目标：Plane 登录改走 xiaohe accounts，保留本地登录作为 break-glass。
 - 不做 OIDC：xiaohe accounts 已有给 cluster / skills 用的 OAuth2 授权码 + PKCE，Plane 只需要一个后端适配。
+- 计费单位是账号，不是设备：Plane 是 web 服务，用账号订阅判定；workspace/project 成员关系另管权限。
 
 ## 现有协议（accounts）
 
@@ -28,11 +30,19 @@
 {"user": {"id": "...", "email": "...", "is_admin": false}}
 ```
 
+`client_id=plane` 且非管理员时，还会带订阅到期时间：
+
+```json
+{"user": {"id": "...", "email": "...", "is_admin": false,
+          "subscription": {"active": true, "expires_at": "2026-12-14T06:52:09Z"}}}
+```
+
 ## accounts 侧改动
 
 1. `api/internal/oauth/store.go`
-   - 增加 `clientPlane = "plane"`。
+   - 增加 `clientPlane = "plane"` 和 `RequiresActiveSubscription`。
    - `AllowedRedirect` 允许 `https://plane.xiaohe.team/auth/xiaohe/callback/`，以及 loopback `http://127.0.0.1:8080/auth/xiaohe/callback/`。
+   - `Record` 记录订阅到期时间，`/v1/oauth/token` 回传给 Plane。
 2. `web/src/platform/redirect.ts`
    - `allowedRedirect` 同步允许上述两个 URL。
 3. 测试：`redirect.test.ts` 增加 plane 的正/负用例；OAuth store 增加 client 校验。
@@ -49,13 +59,15 @@
 - `GET /auth/xiaohe/callback/?code=&state=`
   - 校验 state；从 session 取 verifier。
   - 服务端 POST accounts `/v1/oauth/token`。
-  - 拿 `{id,email,is_admin}`；按 email 查 Plane `User`：
+  - 拿 `{id,email,is_admin}`（plane 还带 `subscription.expires_at`）；按 email 查 Plane `User`：
     - 已存在：直接登录。
     - 不存在：创建 `User`（`is_active=True`, `is_email_verified=True`），不自动给实例管理员。
-  - 调 `plane.authentication.utils.login.user_login(request, user, is_app=False)` 写 Plane session。
-  - 302 到 session 里的 `next`（只允许站内相对路径）或 `/research/`。
+  - 校验订阅 claim；不活跃或已过期直接回登录错误。
+  - 调 `plane.authentication.utils.login.user_login(request, user, is_app=False)` 写 Plane session；
+    订阅 claim 存在时 `request.session.set_expiry(min(默认 7 天, 订阅到期))`。
+  - 302 到 session 里的 `next`（只允许站内相对路径）或 `/research/`；无 workspace 的新用户落 `/onboarding/`。
 - URL 接入：在 Plane 的 URLconf 加两条路由；不改 React 前端。
-- 构建：`FROM makeplane/plane-backend:v1.5.0`，复制模块并 patch URLconf；镜像 tag `xiaohe-plane-backend:v1.5.0-xh2`。
+- 构建：`FROM makeplane/plane-backend:v1.5.0`，复制模块并 patch URLconf；镜像 tag `xiaohe-plane-backend:v1.5.0-xh6`。
 - compose override 只替换 `api` 的 image；worker/beat 可继续用上游镜像（不涉及登录）。
 
 ## 入口
@@ -86,10 +98,11 @@
 ## 迁移步骤
 
 1. [x] accounts 加 plane client / redirect，测试并部署。
-2. [x] 构建 `xiaohe-plane-backend:v1.5.0-xh2`，staging + mock accounts 跑通。
+2. [x] 构建 `xiaohe-plane-backend:v1.5.0-xh6`，staging + mock accounts 跑通。
 3. [x] compose 替换 api 镜像；旧镜像可回滚。
 4. [x] apps 门户指向 `/auth/xiaohe/start/?next=/research/`。
 5. [ ] 真实 accounts 账号浏览器登录验收；本地登录保留 break-glass。
+6. [x] 订阅门槛：`/v1/oauth/authorize` 对 plane 检查有效订阅；`OAuthAuthorizePage` 处理 402 并回跳。
 
 ## 回滚
 

@@ -13,8 +13,8 @@
 | 访问 | `https://plane.xiaohe.team/research`（公网，invite-only） |
 | 实例 | 中山大学 |
 | 管理员 | `lai.zhengshou@outlook.com`；密码在 `~/.xiaohe/plane/admin-password`（600，break-glass） |
-| 登录 | xiaohe accounts SSO：`/auth/xiaohe/start/?next=/research/`；本地 `/sign-in/` 保留 |
-| api 镜像 | `xiaohe-plane-backend:v1.5.0-xh2`（auth/plane 适配） |
+| 登录 | xiaohe accounts SSO：`/auth/xiaohe/start/?next=/research/`；需有效小荷订阅（管理员豁免）；本地 `/sign-in/` 保留 |
+| api 镜像 | `xiaohe-plane-backend:v1.5.0-xh6`（auth/plane 适配 + 订阅门槛） |
 | agent 身份 | `agent-bot@xiaohe.local`；token `~/.xiaohe/plane/agent-token`（600） |
 | agent MCP | `~/.xiaohe/plane/plane-mcp.sh`；笔记本已注册为 `plane` |
 | workspace | 课题组 / `research` |

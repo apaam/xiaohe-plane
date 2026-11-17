@@ -9,7 +9,10 @@ Two GET endpoints:
 
 Accounts issues a one-time code and returns {user: {id, email, is_admin}}.
 Plane links/creates a local user by email and writes a normal Django session.
-Local password login remains available as a break-glass path.
+For clients that require a subscription, accounts also returns
+user.subscription.expires_at; the session is capped at that instant so a
+lapsed plan cannot keep an old login alive. Local password login remains
+available as a break-glass path.
 """
 
 from __future__ import annotations
@@ -24,12 +27,13 @@ import secrets
 import urllib.error
 import urllib.parse
 import urllib.request
+from datetime import datetime, timezone
 
 from django.http import HttpResponseRedirect
 from django.views.decorators.http import require_GET
 
 from plane.authentication.utils.login import user_login
-from plane.db.models import User
+from plane.db.models import User, WorkspaceMember
 
 # Serve Page images inline; keep the download behaviour for attachments.
 from . import asset_inline_patch  # noqa: F401
@@ -45,6 +49,7 @@ REDIRECT_URI = os.environ.get(
     "https://plane.xiaohe.team/auth/xiaohe/callback/",
 )
 DEFAULT_NEXT = "/research/"
+ONBOARDING_NEXT = "/onboarding/"
 
 # Optional comma-separated aliases: accounts-email=plane-email.
 # Example: lai.zhengshou@outlook.com=laizhengsh@mail.sysu.edu.cn
@@ -140,7 +145,7 @@ def _exchange(code: str, verifier: str) -> dict | None:
     email = user.get("email")
     if not isinstance(email, str) or "@" not in email:
         return None
-    return user
+    return data
 
 
 def _unique_username(email: str) -> str:
@@ -151,6 +156,29 @@ def _unique_username(email: str) -> str:
         candidate = f"{base}-{index}"
         index += 1
     return candidate
+
+
+def _subscription_expiry(value: object) -> datetime | None:
+    """Parse the accounts subscription claim; None means the claim is absent.
+
+    A present but malformed or inactive claim is rejected by the caller. The
+    claim is optional so an older accounts deployment (which still gates at
+    authorize time) does not lock every user out during a rolling upgrade.
+    """
+    if value is None:
+        return None
+    if not isinstance(value, dict) or value.get("active") is not True:
+        raise ValueError("subscription is not active")
+    raw = value.get("expires_at")
+    if not isinstance(raw, str):
+        raise ValueError("subscription expiry missing")
+    try:
+        expires_at = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError("subscription expiry invalid") from exc
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    return expires_at
 
 
 @require_GET
@@ -168,8 +196,18 @@ def xiaohe_callback(request):
     if not hmac.compare_digest(state, expected_state):
         return _redirect_error()
 
-    user_info = _exchange(code, verifier)
-    if user_info is None:
+    data = _exchange(code, verifier)
+    if data is None:
+        return _redirect_error()
+
+    user_info = data.get("user")
+    if not isinstance(user_info, dict):
+        return _redirect_error()
+    try:
+        expires_at = _subscription_expiry(data.get("subscription"))
+    except ValueError:
+        return _redirect_error()
+    if expires_at is not None and expires_at <= datetime.now(timezone.utc):
         return _redirect_error()
 
     email = str(user_info["email"]).strip().lower()
@@ -191,7 +229,19 @@ def xiaohe_callback(request):
     elif not user.is_active:
         return _redirect_error()
 
+    # A signed-in user with no workspace would land on the “not a member”
+    # screen. Send first-time users to onboarding so open registration can
+    # create its own workspace; an explicit invitation target is left alone.
+    if next_path == DEFAULT_NEXT and not WorkspaceMember.objects.filter(
+        member=user, is_active=True
+    ).exists():
+        next_path = ONBOARDING_NEXT
+
     user.last_login_medium = "xiaohe"
     user.save(update_fields=["last_login_medium"])
     user_login(request=request, user=user, is_app=False)
+    if expires_at is not None:
+        seconds = int((expires_at - datetime.now(timezone.utc)).total_seconds())
+        request.session.set_expiry(max(1, seconds))
+        request.session.save()
     return HttpResponseRedirect(next_path)

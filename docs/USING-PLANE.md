@@ -2,6 +2,7 @@
 
 - 入口：`https://plane.xiaohe.team/research`
 - 登录：走 xiaohe accounts SSO（apps 门户的 Plane 入口，或 `https://plane.xiaohe.team/auth/xiaohe/start/?next=/research/`）。
+- 准入：账号需有有效的小荷订阅（新注册自带 1 个月试用；管理员豁免）。没有订阅时，accounts 会跳商店页，购买后回到登录流程。
 - 本地 break-glass：`https://plane.xiaohe.team/sign-in/`，管理员密码在 `~/.xiaohe/plane/admin-password`（600）。
 - 当前 workspace：课题组 `/research`
 - 个人项目：**工作台** `/WORK`（示例项目已归档并改名为“示例项目（可删）”）。
@@ -70,6 +71,12 @@ Safari 打开 `https://plane.xiaohe.team/auth/xiaohe/start/?next=/research/`，�
 ## 账号与协作
 
 - 有 xiaohe accounts 的同事首次 SSO 登录会自动建 Plane 用户，再由管理员加入 workspace/project。
+- 添加成员顺序：先 workspace，后 project。
+  1. 对方用同一邮箱注册 accounts，并确保有有效订阅（或由运营赠送一个月）。
+  2. 你以 workspace Admin 进入 Settings → Members → Invite members，填邮箱、角色 Member。
+  3. SMTP 未配置，邀请邮件不会发出；在 Pending invites 里点 ⋯ → Copy link，把链接直接发给对方。
+  4. 对方打开链接、用同一邮箱 SSO 登录并 Accept，成为 workspace member。
+  5. 进入项目 Settings → Members → Add member，选该成员并设置项目角色。
 - `Agent Bot` 原本是 bot 用户，Plane 的负责人候选会排除 bot；本实例已把该账号的
   `is_bot` 改为 `false`（名称仍是 Agent Bot），所以能在下拉框里选到。升级/重装后若选不到，
   重设该字段即可。

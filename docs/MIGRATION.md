@@ -23,8 +23,8 @@
 
 ### 运行时
 
-- 自定义镜像 `xiaohe-plane-backend:v1.5.0-xh5`（SSO + 直接邮箱关联 + hairpin 修复 +
-  Page 图片 inline 补丁）。
+- 自定义镜像 `xiaohe-plane-backend:v1.5.0-xh6`（SSO + 直接邮箱关联 + hairpin 修复 +
+  Page 图片 inline 补丁 + Plane 订阅门槛/会话到期）。
 - 自定义前端 `xiaohe-plane-web:v1.5.0-xh3`：去掉顶栏 GitHub 加星、侧栏 Community
   徽标、登录页上游营销、首页快速入门引导；登录页和帮助菜单加入 `Source (AGPL-3.0)`
   链接；帮助菜单移除文档/联系销售/论坛/What’s new，登录页移除上游 Terms/Privacy，邀请页移除 GitHub/Forum 按钮。补丁在 `web/patches/`，构建脚本 `web/build.sh`。

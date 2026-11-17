@@ -1,7 +1,7 @@
 # Plane deployment (4GB, public via nginx)
 
 - Target: `ts-xiaohe`, Plane CE **v1.5.0**, 4GB container caps, bound to `100.64.0.4:8080` (tailnet).
-- Status: **public running (xiaohe accounts SSO)**；公开注册关闭；本地登录 break-glass。
+- Status: **public running (xiaohe accounts SSO)**；公开注册关闭；Plane 准入需有效小荷订阅（管理员豁免）；本地登录 break-glass。
 
 ## 当前 staging（2026-11-17）
 
@@ -18,7 +18,7 @@
 | agent 身份 | `agent-bot@xiaohe.local`；token `~/.xiaohe/plane/agent-token`（600） |
 | agent MCP | `~/.xiaohe/plane/plane-mcp.sh`；笔记本已注册为 `plane` |
 | 公网入口 | `plane.xiaohe.team` 已代理 Plane；SSO 入口 `/auth/xiaohe/start/` |
-| api 镜像 | `xiaohe-plane-backend:v1.5.0-xh2`（`auth/plane`） |
+| api 镜像 | `xiaohe-plane-backend:v1.5.0-xh6`（`auth/plane` + 订阅门槛） |
 | 容器访问 accounts | `extra_hosts: accounts.xiaohe.team:host-gateway`，避免公网 hairpin 超时 |
 | 备份 | 每日 03:17 cron，`~/plane-backups`（Postgres dump + uploads tar，保留 14 天） |
 | 实际内存 | Plane 容器合计约 1.5GiB；host 可用约 4.6GiB |
