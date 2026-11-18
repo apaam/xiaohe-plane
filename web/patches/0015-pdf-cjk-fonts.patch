@@ -1,5 +1,5 @@
 diff --git a/apps/web/components/editor/pdf/document.tsx b/apps/web/components/editor/pdf/document.tsx
-index bda85bb..54f5b90 100644
+index bda85bb..6484bbc 100644
 --- a/apps/web/components/editor/pdf/document.tsx
 +++ b/apps/web/components/editor/pdf/document.tsx
 @@ -17,13 +17,21 @@ import interSemibold from "@/app/assets/fonts/inter/semibold.ttf?url";
@@ -27,7 +27,7 @@ index bda85bb..54f5b90 100644
  };
  
  const EDITOR_PDF_TYPOGRAPHY_STYLES: Styles = {
-@@ -213,6 +221,31 @@ Font.register({
+@@ -213,6 +221,33 @@ Font.register({
    ],
  });
  
@@ -50,9 +50,11 @@ index bda85bb..54f5b90 100644
 +// Warm the CJK fonts when a page editor mounts, so the first export does not
 +// stall on the font download (about 9 MB compressed).
 +export function preloadPDFExportFonts() {
++  // Numeric weights: string weights miss FontFamily.resolve's exact match and
++  // the fallback then picks the regular face for bold.
 +  void Promise.allSettled([
-+    Font.load({ fontFamily: "NotoSansSC", fontWeight: "normal" }),
-+    Font.load({ fontFamily: "NotoSansSC", fontWeight: "bold" }),
++    Font.load({ fontFamily: "NotoSansSC", fontWeight: 400 }),
++    Font.load({ fontFamily: "NotoSansSC", fontWeight: 700 }),
 +  ]);
 +}
 +
