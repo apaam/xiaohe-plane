@@ -28,12 +28,15 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from plane.api.middleware.api_authentication import APIKeyAuthentication
 from plane.authentication.session import BaseSessionAuthentication
 from plane.db.models import (
     APIToken,
     Profile,
+    Page,
     Project,
     ProjectMember,
+    ProjectPage,
     User,
     Workspace,
     WorkspaceMember,
@@ -276,4 +279,83 @@ class BotActionView(APIView):
             return Response({"ok": True})
         return Response(
             {"error": "unknown action"}, status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+class PagesView(APIView):
+    """Read-only Pages access for bot tokens.
+
+    The official v1 API (and the web app API) do not expose Pages to API-key
+    callers. This endpoint fills that gap for public pages and for pages linked
+    to projects the caller belongs to.
+    """
+
+    authentication_classes = [APIKeyAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def _workspace(self, slug: str, user):
+        return Workspace.objects.filter(
+            slug=slug,
+            workspace_member__member=user,
+            workspace_member__is_active=True,
+        ).first()
+
+    def _can_read(self, page: Page, user) -> bool:
+        if page.access == 0:
+            return True
+        project_ids = ProjectPage.objects.filter(page=page).values_list(
+            "project_id", flat=True
+        )
+        return ProjectMember.objects.filter(
+            member=user, project_id__in=project_ids, is_active=True
+        ).exists()
+
+    def get(self, request, slug: str, page_id: str | None = None):
+        workspace = self._workspace(slug, request.user)
+        if workspace is None:
+            return Response(
+                {"error": "not a workspace member"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if page_id is None:
+            pages = Page.objects.filter(
+                workspace=workspace,
+                archived_at__isnull=True,
+            ).order_by("-updated_at")
+            rows = [
+                {
+                    "id": str(page.id),
+                    "name": page.name,
+                    "updated_at": page.updated_at.isoformat(),
+                }
+                for page in pages
+                if self._can_read(page, request.user)
+            ]
+            return Response({"pages": rows})
+        page = Page.objects.filter(
+            id=page_id, workspace=workspace, archived_at__isnull=True
+        ).first()
+        if page is None:
+            return Response(
+                {"error": "page not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+        if not self._can_read(page, request.user):
+            return Response(
+                {"error": "no access to this page"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return Response(
+            {
+                "id": str(page.id),
+                "name": page.name,
+                "description_html": page.description_html,
+                "description_stripped": page.description_stripped,
+                "updated_at": page.updated_at.isoformat(),
+                "project_ids": [
+                    str(pid)
+                    for pid in ProjectPage.objects.filter(page=page).values_list(
+                        "project_id", flat=True
+                    )
+                ],
+            }
         )

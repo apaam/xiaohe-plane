@@ -142,6 +142,18 @@ token 一人一份，不共用、不进仓库。要让 agent 定时接单，可�
   旧会话若已卡住（transcript 停在半截 tool_use），新建 session 并把 `threads.json` 的 `session_id` 指过去。
 - 自带 Claude Code / Codex 不走这个桥（没有 xiaohe Session API），按上一节的手动或自建轮询方式接单。
 
+### Agent 读取 Pages
+
+官方 v1 API 没有 Pages 端点；本实例补了只读接口，bot token 可直接读：
+
+```bash
+TOKEN=$(cat ~/.xiaohe/plane/agent-token)
+curl -s -H "X-API-Key: $TOKEN" https://plane.xiaohe.team/auth/xiaohe/pages/research/
+curl -s -H "X-API-Key: $TOKEN" https://plane.xiaohe.team/auth/xiaohe/pages/research/<page_id>/
+```
+
+public 页面，或 bot 所在项目的页面可读；写入仍走网页。
+
 ## 备份
 
 - 每日 03:17 自动备份：`/home/ubuntu/plane-backups/`（Postgres dump + uploads tar）。
