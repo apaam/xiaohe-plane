@@ -1,13 +1,13 @@
 diff --git a/apps/web/components/editor/pdf/document.tsx b/apps/web/components/editor/pdf/document.tsx
-index bda85bb..8b8842e 100644
+index bda85bb..2c65f00 100644
 --- a/apps/web/components/editor/pdf/document.tsx
 +++ b/apps/web/components/editor/pdf/document.tsx
 @@ -17,13 +17,21 @@ import interSemibold from "@/app/assets/fonts/inter/semibold.ttf?url";
  import interThin from "@/app/assets/fonts/inter/thin.ttf?url";
  import interUltraBold from "@/app/assets/fonts/inter/ultrabold.ttf?url";
  import interUltraLight from "@/app/assets/fonts/inter/ultralight.ttf?url";
-+import notoSansSCBold from "@/app/assets/fonts/noto-sans-sc/bold.woff?url";
-+import notoSansSCRegular from "@/app/assets/fonts/noto-sans-sc/regular.woff?url";
++import notoSansSCBold from "@/app/assets/fonts/noto-sans-sc/bold.ttf?url";
++import notoSansSCRegular from "@/app/assets/fonts/noto-sans-sc/regular.ttf?url";
  // plane imports
  import { convertRemToPixel } from "@plane/utils";
  

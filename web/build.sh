@@ -33,7 +33,7 @@ done
 # being carried in a git patch. 0015 imports them for CJK PDF export.
 FONT_DIR="apps/web/app/assets/fonts/noto-sans-sc"
 mkdir -p "$FONT_DIR"
-cp "$REPO_ROOT"/web/assets/fonts/noto-sans-sc/*.woff "$FONT_DIR"/
+cp "$REPO_ROOT"/web/assets/fonts/noto-sans-sc/*.ttf "$FONT_DIR"/
 
 # BuildKit not installed: the Dockerfile's pnpm cache mounts are optional.
 # Strip them so the legacy builder can run the same file.

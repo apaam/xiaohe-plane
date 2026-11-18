@@ -7,8 +7,8 @@ text keeps using Inter; these files supply the glyphs Inter lacks.
 - Weights: Regular (400) and Bold (700), instanced from the variable font at
   `google/fonts/ofl/notosanssc/NotoSansSC[wght].ttf`.
 - Charset: GBK-encodable ideographs (U+3400–U+9FFF range) plus CJK punctuation,
-  full-width forms, general punctuation and Latin-1, stored as WOFF.
-  About 4.3 MB per weight.
+  full-width forms, general punctuation and Latin-1, stored as TTF; WOFF costs a slow JS zlib inflate on every export.
+  About 7.1 MB per weight.
 
 Regenerate (needs `uv` and a local copy of the variable font):
 
@@ -29,10 +29,10 @@ for cp in range(0x3400, 0xA000):
 open("gbk-chars.txt", "w", encoding="utf-8").write("".join(chars))
 
 for name in ("Regular", "Bold"):
-    subprocess.run(["pyftsubset", f"static-{name}.ttf", f"--output-file={name.lower()}.woff",
+    subprocess.run(["pyftsubset", f"static-{name}.ttf", f"--output-file={name.lower()}.ttf",
                     "--text-file=gbk-chars.txt",
                     "--unicodes=U+0020-007E,U+00A0-00FF,U+2000-206F,U+3000-303F,U+FF00-FFEF",
-                    "--flavor=woff", "--layout-features=*", "--notdef-glyph", "--notdef-outline",
+                    "--layout-features=*", "--notdef-glyph", "--notdef-outline",
                     "--recommended-glyphs", "--name-IDs=*", "--name-legacy", "--name-languages=*"],
                    check=True)
 PY
