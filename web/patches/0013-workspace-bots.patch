@@ -48,10 +48,10 @@ index 0000000..ef64e69
 +});
 diff --git a/apps/web/app/(all)/[workspaceSlug]/(settings)/settings/(workspace)/bots/page.tsx b/apps/web/app/(all)/[workspaceSlug]/(settings)/settings/(workspace)/bots/page.tsx
 new file mode 100644
-index 0000000..399c271
+index 0000000..37deec7
 --- /dev/null
 +++ b/apps/web/app/(all)/[workspaceSlug]/(settings)/settings/(workspace)/bots/page.tsx
-@@ -0,0 +1,291 @@
+@@ -0,0 +1,326 @@
 +/**
 + * Copyright (c) 2023-present Plane Software, Inc. and contributors
 + * SPDX-License-Identifier: AGPL-3.0-only
@@ -86,9 +86,11 @@ index 0000000..399c271
 +  is_active: boolean;
 +  token_active: boolean;
 +  last_used: string | null;
++  owner: { id: string; display_name: string; email: string } | null;
 +  projects: BotProject[];
 +};
 +type Project = { id: string; identifier: string; name: string };
++type Member = { id: string; member: { id: string; display_name: string; email: string }; is_active?: boolean };
 +
 +const api = axios.create({ withCredentials: true });
 +
@@ -101,6 +103,8 @@ index 0000000..399c271
 +
 +  const [bots, setBots] = useState<Bot[] | null>(null);
 +  const [projects, setProjects] = useState<Project[]>([]);
++  const [members, setMembers] = useState<Member[]>([]);
++  const [ownerId, setOwnerId] = useState("");
 +  const [showForm, setShowForm] = useState(false);
 +  const [name, setName] = useState("");
 +  const [selected, setSelected] = useState<string[]>([]);
@@ -108,12 +112,21 @@ index 0000000..399c271
 +  const [busy, setBusy] = useState(false);
 +
 +  const load = useCallback(async () => {
-+    const [botsRes, projectsRes] = await Promise.all([
++    const [botsRes, projectsRes, membersRes] = await Promise.all([
 +      api.get(`/auth/xiaohe/bots/${workspaceSlug}/`),
 +      api.get(`/api/workspaces/${workspaceSlug}/projects/`),
++      api.get(`/api/workspaces/${workspaceSlug}/members/`),
 +    ]);
 +    setBots(botsRes.data?.bots ?? []);
 +    setProjects(Array.isArray(projectsRes.data) ? projectsRes.data : projectsRes.data?.results ?? []);
++    const memberRows = Array.isArray(membersRes.data) ? membersRes.data : membersRes.data?.results ?? [];
++    setMembers(
++      memberRows.filter(
++        (row: Member) =>
++          row.is_active !== false &&
++          !String(row.member.email).endsWith("-bot@xiaohe.local")
++      )
++    );
 +  }, [workspaceSlug]);
 +
 +  useEffect(() => {
@@ -135,11 +148,13 @@ index 0000000..399c271
 +      const res = await api.post(`/auth/xiaohe/bots/${workspaceSlug}/`, {
 +        name: name.trim(),
 +        project_ids: selected,
++        ...(ownerId ? { owner_id: ownerId } : {}),
 +      });
 +      setToken(res.data?.token ?? null);
 +      setShowForm(false);
 +      setName("");
 +      setSelected([]);
++      setOwnerId("");
 +      await load();
 +      setToast({ type: "success", title: t("workspace_settings.bots.created") });
 +    } catch (error: any) {
@@ -234,6 +249,22 @@ index 0000000..399c271
 +              value={name}
 +              onChange={(event) => setName(event.target.value)}
 +            />
++            <label className="mt-3 block text-body-sm-medium text-primary" htmlFor="bot-owner">
++              {t("workspace_settings.bots.owner")}
++            </label>
++            <select
++              id="bot-owner"
++              className="mt-2 w-full rounded border border-subtle bg-surface-2 px-3 py-2 text-body-sm-regular text-primary"
++              value={ownerId}
++              onChange={(event) => setOwnerId(event.target.value)}
++            >
++              <option value="">{t("workspace_settings.bots.owner_default")}</option>
++              {members.map((row) => (
++                <option key={row.member.id} value={row.member.id}>
++                  {row.member.display_name || row.member.email}
++                </option>
++              ))}
++            </select>
 +            <p className="mt-2 text-body-xs-regular text-tertiary">
 +              {t("workspace_settings.bots.projects")}
 +            </p>
@@ -289,6 +320,10 @@ index 0000000..399c271
 +                  <div className="flex items-center gap-2">
 +                    <span className="text-body-sm-medium text-primary">{bot.display_name}</span>
 +                    <span className="text-body-xs-regular text-tertiary">{bot.email}</span>
++                    <span className="text-body-xs-regular text-tertiary">
++                      {t("workspace_settings.bots.owner")}:{" "}
++                      {bot.owner?.display_name ?? t("workspace_settings.bots.owner_unset")}
++                    </span>
 +                    <span
 +                      className={
 +                        bot.is_active
@@ -397,10 +432,10 @@ index e9d326e..4d53f00 100644
      WORKSPACE_SETTINGS["export"],
    ],
 diff --git a/packages/i18n/src/locales/en/workspace-settings.json b/packages/i18n/src/locales/en/workspace-settings.json
-index 5804cfa..d3e764a 100644
+index 5804cfa..899aed6 100644
 --- a/packages/i18n/src/locales/en/workspace-settings.json
 +++ b/packages/i18n/src/locales/en/workspace-settings.json
-@@ -1,5 +1,31 @@
+@@ -1,5 +1,37 @@
  {
    "workspace_settings": {
 +    "bots": {
@@ -410,6 +445,12 @@ index 5804cfa..d3e764a 100644
 +      "name": "Name",
 +      "name_placeholder": "e.g. LCH",
 +      "email_preview": "Email: {email}",
++      "owner": "Owner",
++      "owner_default": "Creator (me)",
++      "owner_unset": "Unassigned",
++        "owner": "Owner",
++        "owner_default": "Creator (me)",
++        "owner_unset": "Unassigned",
 +      "projects": "Projects",
 +      "submit": "Create",
 +      "cancel": "Cancel",
@@ -433,10 +474,10 @@ index 5804cfa..d3e764a 100644
      "page_label": "{workspace} - General settings",
      "key_created": "Key created",
 diff --git a/packages/i18n/src/locales/zh-CN/workspace-settings.json b/packages/i18n/src/locales/zh-CN/workspace-settings.json
-index 3823c40..c65f96b 100644
+index 3823c40..c57ccee 100644
 --- a/packages/i18n/src/locales/zh-CN/workspace-settings.json
 +++ b/packages/i18n/src/locales/zh-CN/workspace-settings.json
-@@ -1,5 +1,31 @@
+@@ -1,5 +1,37 @@
  {
    "workspace_settings": {
 +    "bots": {
@@ -446,6 +487,12 @@ index 3823c40..c65f96b 100644
 +      "name": "名称",
 +      "name_placeholder": "例如 LCH",
 +      "email_preview": "邮箱：{email}",
++      "owner": "归属",
++      "owner_default": "创建者（我）",
++      "owner_unset": "未设置",
++        "owner": "归属",
++        "owner_default": "创建者（我）",
++        "owner_unset": "未设置",
 +      "projects": "项目",
 +      "submit": "创建",
 +      "cancel": "取消",

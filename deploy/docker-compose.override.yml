@@ -1,6 +1,6 @@
 services:
   web:
-    image: xiaohe-plane-web:v1.5.0-xh12
+    image: xiaohe-plane-web:v1.5.0-xh13
     mem_limit: 384m
     restart: unless-stopped
     volumes:
