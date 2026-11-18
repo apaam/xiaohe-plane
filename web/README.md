@@ -14,6 +14,7 @@ Plane 上游前端原样构建，只在构建时打几个小补丁，不改业�
 | `0009-fix-greeting-zh.patch` | 修正中英文问候语（晚上好 / Good evening，不再出现“早上 晚上”） |
 | `0010-inbox-notification-list-density.patch` | 收件箱通知列表：收紧条目上下留白，选中项改用可见的选中背景，补 hover 反馈 |
 | `0011-remove-sidebar-help-container.patch` | 侧栏底部 Community 徽标移除后遗留的容器与分隔线 |
+| `0012-fix-ime-enter-comment.patch` | 评论框输入中文时按 Enter 只上屏候选词，不再误发送（新建与编辑评论框） |
 
 ## 构建
 

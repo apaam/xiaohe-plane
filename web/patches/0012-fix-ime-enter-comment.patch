@@ -1,0 +1,60 @@
+diff --git a/apps/web/components/comments/card/edit-form.tsx b/apps/web/components/comments/card/edit-form.tsx
+index 52400eb..ff91a0d 100644
+--- a/apps/web/components/comments/card/edit-form.tsx
++++ b/apps/web/components/comments/card/edit-form.tsx
+@@ -43,6 +43,7 @@ export const CommentCardEditForm = observer(function CommentCardEditForm(props:
+   const { t } = useTranslation();
+   // refs
+   const editorRef = useRef<EditorRefApi>(null);
++  const imeCompositionEndedAt = useRef(0);
+   // states
+   const [isEditorReady, setIsEditorReady] = useState(false);
+   // form info
+@@ -125,7 +126,17 @@ export const CommentCardEditForm = observer(function CommentCardEditForm(props:
+         <div
+           role="presentation"
+           className="w-full"
++          onCompositionEnd={() => {
++            imeCompositionEndedAt.current = Date.now();
++          }}
+           onKeyDown={(e) => {
++            // Enter confirms an in-progress IME composition (e.g. pinyin) instead of submitting.
++            // Safari sends the confirming keydown right after compositionend, so also skip that one.
++            if (e.nativeEvent.isComposing || e.nativeEvent.keyCode === 229) return;
++            if (Date.now() - imeCompositionEndedAt.current < 100) {
++              imeCompositionEndedAt.current = 0;
++              return;
++            }
+             if (e.key === "Enter" && !e.shiftKey && !e.ctrlKey && !e.metaKey && !isEmpty) handleSubmit(onEnter)(e);
+           }}
+         >
+diff --git a/apps/web/components/comments/comment-create.tsx b/apps/web/components/comments/comment-create.tsx
+index e0c5189..29793f3 100644
+--- a/apps/web/components/comments/comment-create.tsx
++++ b/apps/web/components/comments/comment-create.tsx
+@@ -42,6 +42,7 @@ export const CommentCreate = observer(function CommentCreate(props: TCommentCrea
+   const [isEditorReady, setIsEditorReady] = useState(false);
+   // refs
+   const editorRef = useRef<EditorRefApi>(null);
++  const imeCompositionEndedAt = useRef(0);
+   // store hooks
+   const workspaceStore = useWorkspace();
+   // derived values
+@@ -92,7 +93,17 @@ export const CommentCreate = observer(function CommentCreate(props: TCommentCrea
+   return (
+     <div
+       className="sticky bottom-0 z-[4] bg-surface-1 sm:static"
++      onCompositionEnd={() => {
++        imeCompositionEndedAt.current = Date.now();
++      }}
+       onKeyDown={(e) => {
++        // Enter confirms an in-progress IME composition (e.g. pinyin) instead of submitting.
++        // Safari sends the confirming keydown right after compositionend, so also skip that one.
++        if (e.nativeEvent.isComposing || e.nativeEvent.keyCode === 229) return;
++        if (Date.now() - imeCompositionEndedAt.current < 100) {
++          imeCompositionEndedAt.current = 0;
++          return;
++        }
+         if (
+           e.key === "Enter" &&
+           !e.shiftKey &&
