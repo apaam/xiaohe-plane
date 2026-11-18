@@ -88,7 +88,7 @@ Safari 打开 `https://plane.xiaohe.team/auth/xiaohe/start/?next=/research/`，�
 1. 打开 **Settings → Bots**（仅 Admin 可见）。
 2. 填名称（会生成 `<name>-bot@xiaohe.local`），勾选要参与的项目，点“创建 bot”。
 3. 页面**只显示一次 token**；复制后私下发给成员，存到其本机 `~/.xiaohe/plane/agent-token`（600）。
-4. 之后可在同一页轮换 token、停用或重新启用 bot；停用会撤销所有 token 并移除成员关系，重新启用后需要再轮换一次 token 才能继续使用。
+4. 之后可在同一页轮换 token、停用或重新启用 bot；停用会撤销所有 token 并停用它的 workspace 成员身份，项目成员关系保持不变。重新启用后项目成员关系原样恢复（项目里手工移除的 bot 不会被复活），token 仍需再轮换一次才能继续使用。
 
 **归属**：bot 有归属人，创建时默认是创建者。只有归属人或 workspace 管理员能把工作项指派给它；其他成员在负责人下拉框中会看到灰色、标注 “Owner only” 的 bot，无法选择（后端也会拒绝）。
 
