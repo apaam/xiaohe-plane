@@ -21,7 +21,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 ROOT = Path.home() / ".xiaohe" / "plane"
@@ -43,6 +43,12 @@ NEW_GROUPS = {"backlog", "unstarted"}
 DONE_GROUPS = {"completed", "cancelled"}
 BUSY_STATUSES = {"running", "queued", "pending", "starting"}
 FAILED_STATUSES = {"error", "failed", "terminated"}
+
+# Work is picked in this order: startable first, then priority, then target
+# date, then the more active state, then the newest signal.
+PRIORITY_RANK = {"urgent": 0, "high": 1, "medium": 2, "low": 3, "none": 4}
+GROUP_RANK = {"started": 0, "unstarted": 1, "backlog": 2}
+NO_DATE = 10**6
 
 THREADS_LOCK_AGE = 600
 AGENT_LOCK_AGE = 2700
@@ -183,6 +189,45 @@ def strip_html(value: str) -> str:
 
 def parse_time(value: str) -> datetime:
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
+def parse_date(value) -> date | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    try:
+        return parse_time(text).date()
+    except ValueError:
+        return None
+
+
+def pick_key(
+    item: dict,
+    group: str,
+    activity: str,
+    today: date,
+    force_start: bool = False,
+) -> tuple:
+    """Rank a candidate: startable → priority → due → active → newest.
+
+    A human reply or a retry means "work on it now", so it overrides a future
+    start date; a brand-new item waits for its scheduled start.
+    """
+    priority = str(item.get("priority") or "none").lower()
+    starts = parse_date(item.get("start_date"))
+    due = parse_date(item.get("target_date"))
+    startable = 0 if force_start or starts is None or starts <= today else 1
+    try:
+        activity_at = parse_time(str(activity or "")).timestamp()
+    except ValueError:
+        activity_at = 0.0
+    return (
+        startable,
+        PRIORITY_RANK.get(priority, PRIORITY_RANK["none"]),
+        due.toordinal() if due else NO_DATE,
+        GROUP_RANK.get(group, GROUP_RANK["backlog"]),
+        -activity_at,
+    )
 
 
 def acquire_lock() -> bool:
@@ -555,6 +600,7 @@ def main() -> int:
             else projects
         )
 
+        today = date.today()
         candidates = []
         for project in project_rows:
             project_id = str(project.get("id") or "")
@@ -601,7 +647,13 @@ def main() -> int:
                             continue
                         candidates.append(
                             (
-                                "retry:" + str(thread.get("retry_after_iso") or ""),
+                                pick_key(
+                                    item,
+                                    group,
+                                    datetime.now(timezone.utc).isoformat(),
+                                    today,
+                                    force_start=True,
+                                ),
                                 item,
                                 thread,
                                 [],
@@ -618,7 +670,13 @@ def main() -> int:
                         clear_pending(thread)
                         candidates.append(
                             (
-                                new_comments[0]["created_at"],
+                                pick_key(
+                                    item,
+                                    group,
+                                    new_comments[0]["created_at"],
+                                    today,
+                                    force_start=True,
+                                ),
                                 item,
                                 thread,
                                 new_comments,
@@ -630,7 +688,12 @@ def main() -> int:
                 elif group in NEW_GROUPS:
                     candidates.append(
                         (
-                            str(item.get("created_at") or ""),
+                            pick_key(
+                                item,
+                                group,
+                                str(item.get("created_at") or ""),
+                                today,
+                            ),
                             item,
                             None,
                             humans,
@@ -644,6 +707,14 @@ def main() -> int:
             return 0
 
         candidates.sort(key=lambda row: row[0])
+        log(
+            "queue: "
+            + ", ".join(
+                f"{row[5]}-{row[1].get('sequence_id')}"
+                f"({row[1].get('priority') or 'none'})"
+                for row in candidates[:5]
+            )
+        )
         (
             _,
             item,
