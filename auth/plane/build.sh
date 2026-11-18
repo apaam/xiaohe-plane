@@ -2,6 +2,6 @@
 set -euo pipefail
 
 cd "$(dirname "$0")"
-IMAGE_TAG="${IMAGE_TAG:-xiaohe-plane-backend:v1.5.0-xh15}"
+IMAGE_TAG="${IMAGE_TAG:-xiaohe-plane-backend:v1.5.0-xh16}"
 docker build -t "$IMAGE_TAG" .
 echo "built $IMAGE_TAG"

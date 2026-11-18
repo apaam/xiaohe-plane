@@ -16,6 +16,7 @@ Plane 上游前端原样构建，只在构建时打几个小补丁，不改业�
 | `0011-remove-sidebar-help-container.patch` | 侧栏底部 Community 徽标移除后遗留的容器与分隔线 |
 | `0012-fix-ime-enter-comment.patch` | 评论框输入中文时按 Enter 只上屏候选词，不再误发送（新建与编辑评论框） |
 | `0013-workspace-bots.patch` | Workspace Settings 增加 Bots 页：管理员创建/轮换/停用成员 bot |
+| `0014-restrict-bot-assignee.patch` | 非归属人/非管理员的 bot 在成员下拉框中灰色显示并标注 Owner only |
 
 ## 构建
 
@@ -23,7 +24,7 @@ Plane 上游前端原样构建，只在构建时打几个小补丁，不改业�
 
 ```bash
 DOCKER="sudo docker" ./web/build.sh
-# 产物：xiaohe-plane-web:v1.5.0-xh13
+# 产物：xiaohe-plane-web:v1.5.0-xh14
 ```
 
 脚本先 `git clone --depth 1 --branch v1.5.0` 上游源码，重置到 tag，打补丁，再用上游
@@ -35,7 +36,7 @@ DOCKER="sudo docker" ./web/build.sh
 
 ```yaml
   web:
-    image: xiaohe-plane-web:v1.5.0-xh13
+    image: xiaohe-plane-web:v1.5.0-xh14
 ```
 
 仍挂载 `web-Caddyfile`（放宽静态资源限流到 10000/min）。

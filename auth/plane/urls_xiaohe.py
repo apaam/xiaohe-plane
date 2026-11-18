@@ -3,7 +3,12 @@
 
 from django.urls import path
 
-from plane.authentication.views.bots import BotActionView, BotsView, PagesView
+from plane.authentication.views.bots import (
+    BotActionView,
+    BotsAssignableView,
+    BotsView,
+    PagesView,
+)
 from plane.authentication.views.xiaohe_sso import (
     xiaohe_callback,
     xiaohe_logout,
@@ -15,6 +20,11 @@ urlpatterns = [
     path("xiaohe/callback/", xiaohe_callback, name="xiaohe-sso-callback"),
     path("xiaohe/logout/", xiaohe_logout, name="xiaohe-sso-logout"),
     path("xiaohe/bots/<str:slug>/", BotsView.as_view(), name="xiaohe-bots"),
+    path(
+        "xiaohe/bots/<str:slug>/assignable/",
+        BotsAssignableView.as_view(),
+        name="xiaohe-bots-assignable",
+    ),
     path("xiaohe/pages/<str:slug>/", PagesView.as_view(), name="xiaohe-pages"),
     path(
         "xiaohe/pages/<str:slug>/<uuid:page_id>/",

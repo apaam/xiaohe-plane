@@ -90,7 +90,7 @@ Safari 打开 `https://plane.xiaohe.team/auth/xiaohe/start/?next=/research/`，�
 3. 页面**只显示一次 token**；复制后私下发给成员，存到其本机 `~/.xiaohe/plane/agent-token`（600）。
 4. 之后可在同一页轮换 token、停用或重新启用 bot；停用会撤销所有 token 并移除成员关系，重新启用后需要再轮换一次 token 才能继续使用。
 
-**归属**：bot 有归属人，创建时默认是创建者。只有归属人或 workspace 管理员能把工作项指派给它；其他成员指派会被拒绝（403）。
+**归属**：bot 有归属人，创建时默认是创建者。只有归属人或 workspace 管理员能把工作项指派给它；其他成员在负责人下拉框中会看到灰色、标注 “Owner only” 的 bot，无法选择（后端也会拒绝）。
 
 **旧镜像的备用流程**（没有 Bots 页时）：由管理员在 VPS 的 api 容器里创建用户、加入项目并签发 token：
 

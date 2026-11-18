@@ -401,3 +401,37 @@ class PagesView(APIView):
                 ],
             }
         )
+
+
+class BotsAssignableView(APIView):
+    """Which bots the current user may assign (for greying out the rest)."""
+
+    authentication_classes = [BaseSessionAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, slug: str):
+        workspace = Workspace.objects.filter(
+            slug=slug,
+            workspace_member__member=request.user,
+            workspace_member__is_active=True,
+        ).first()
+        if workspace is None:
+            return Response(
+                {"error": "not a workspace member"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        member = WorkspaceMember.objects.filter(
+            workspace=workspace, member=request.user, is_active=True
+        ).first()
+        is_admin = bool(member and member.role >= ADMIN_ROLE)
+        rows = []
+        for bot in _bot_queryset(workspace):
+            owner_id = bot_owner_id(bot.id)
+            rows.append(
+                {
+                    "id": str(bot.id),
+                    "display_name": bot.display_name,
+                    "can_assign": is_admin or (owner_id is not None and str(owner_id) == str(request.user.id)),
+                }
+            )
+        return Response({"bots": rows})

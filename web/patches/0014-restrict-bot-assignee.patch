@@ -1,0 +1,163 @@
+diff --git a/apps/web/components/dropdowns/member/member-select.tsx b/apps/web/components/dropdowns/member/member-select.tsx
+index b1186d1..4cd9a53 100644
+--- a/apps/web/components/dropdowns/member/member-select.tsx
++++ b/apps/web/components/dropdowns/member/member-select.tsx
+@@ -4,7 +4,8 @@
+  * See the LICENSE file for details.
+  */
+ 
+-import { useCallback, useMemo } from "react";
++import { useCallback, useEffect, useMemo, useState } from "react";
++import axios from "axios";
+ import { observer } from "mobx-react";
+ import { useParams } from "next/navigation";
+ // plane imports
+@@ -66,6 +67,23 @@ export type MemberSelectWebProps = MemberSelectWebCommonProps &
+  * "Suspended" badge, as the legacy CE dropdown did (a selected one stays enabled so it can still be
+  * removed, and the trigger keeps showing it).
+  */
++const restrictedBotsCache = new Map<string, Promise<Set<string>>>();
++
++// Bots the current user may not assign (not its owner and not a workspace admin).
++function fetchRestrictedBotIds(slug: string): Promise<Set<string>> {
++  const cached = restrictedBotsCache.get(slug);
++  if (cached) return cached;
++  const request = axios
++    .get(`/auth/xiaohe/bots/${slug}/assignable/`, { withCredentials: true })
++    .then((response) => {
++      const rows = (response.data?.bots ?? []) as { id: string; can_assign: boolean }[];
++      return new Set(rows.filter((row) => !row.can_assign).map((row) => row.id));
++    })
++    .catch(() => new Set<string>());
++  restrictedBotsCache.set(slug, request);
++  return request;
++}
++
+ export const MemberSelect = observer(function MemberSelect(props: MemberSelectWebProps) {
+   const {
+     projectId,
+@@ -87,6 +105,17 @@ export const MemberSelect = observer(function MemberSelect(props: MemberSelectWe
+   // router params
+   const { workspaceSlug } = useParams();
+   const slug = workspaceSlug?.toString();
++  const [restrictedBotIds, setRestrictedBotIds] = useState<Set<string>>(new Set());
++  useEffect(() => {
++    if (!slug) return;
++    let alive = true;
++    fetchRestrictedBotIds(slug).then((ids) => {
++      if (alive) setRestrictedBotIds(ids);
++    });
++    return () => {
++      alive = false;
++    };
++  }, [slug]);
+   // store hooks
+   const {
+     getUserDetails,
+@@ -119,9 +148,10 @@ export const MemberSelect = observer(function MemberSelect(props: MemberSelectWe
+         name,
+         avatar_url: getFileURL(member?.avatar_url ?? ""),
+         suspended: !!slug && isUserSuspended(id, slug),
++        restricted: restrictedBotIds.has(id),
+       };
+     },
+-    [getUserDetails, currentUser?.id, youLabel, slug, isUserSuspended]
++    [getUserDetails, currentUser?.id, youLabel, slug, isUserSuspended, restrictedBotIds]
+   );
+ 
+   const getValues = useCallback(
+@@ -177,6 +207,7 @@ export const MemberSelect = observer(function MemberSelect(props: MemberSelectWe
+         className={className}
+         tooltip={resolvedTooltip}
+         filterOption={excludeSet ? filterOption : undefined}
++        restrictedLabel={t("workspace_settings.bots.owner_only")}
+         tabIndex={tabIndex}
+       />
+     );
+diff --git a/packages/blocks/src/property-select/member-select.tsx b/packages/blocks/src/property-select/member-select.tsx
+index 1dd1b38..fb7f45c 100644
+--- a/packages/blocks/src/property-select/member-select.tsx
++++ b/packages/blocks/src/property-select/member-select.tsx
+@@ -32,6 +32,11 @@ export type MemberOption = {
+    * keeps an enabled row so the selection can still be removed, and the trigger shows them as usual.
+    */
+   suspended?: boolean;
++  /**
++   * A bot this user may not assign (not its owner and not a workspace admin). It renders
++   * greyed with {@link MemberSelectCommonProps.restrictedLabel} and cannot be picked.
++   */
++  restricted?: boolean;
+ };
+ 
+ export type MemberSelectVariant = SelectVariant | `avatar-group-${SelectTriggerSize}`;
+@@ -116,6 +121,8 @@ type MemberSelectCommonProps = {
+   filterOption?: (member: MemberOption) => boolean;
+   /** Badge text on a {@link MemberOption.suspended} row. Defaults to "Suspended". */
+   suspendedLabel?: string;
++  /** Badge text on a {@link MemberOption.restricted} row. Defaults to "Owner only". */
++  restrictedLabel?: string;
+   /** Trigger text when more than one member is selected (e.g. "3 assignees"), in place of the default summary. */
+   multipleLabel?: (count: number) => string;
+ };
+@@ -175,6 +182,7 @@ export function MemberSelect(props: MemberSelectProps) {
+     testId,
+     tabIndex,
+     suspendedLabel = "Suspended",
++    restrictedLabel = "Owner only",
+     multipleLabel,
+   } = props;
+   const clearable = !props.multiple && !!props.clearable;
+@@ -243,7 +251,7 @@ export function MemberSelect(props: MemberSelectProps) {
+         <span className={OPTION_ICON_SLOT_CLASSNAME}>
+           <UserAltOutline className="h-4 w-4 text-primary" />
+         </span>
+-      ) : member.suspended ? (
++      ) : member.suspended || member.restricted ? (
+         <span className={OPTION_ICON_SLOT_CLASSNAME}>
+           <DeactivatedUserOutline className="h-3.5 w-3.5 text-placeholder" />
+         </span>
+@@ -253,9 +261,14 @@ export function MemberSelect(props: MemberSelectProps) {
+         </span>
+       ),
+     // Suspended members cannot be newly picked; an already-selected one stays toggleable so it can be removed.
+-    getOptionDisabled: (member: MemberOption) => !!member.suspended && !selectedIds.has(member.id),
++    getOptionDisabled: (member: MemberOption) =>
++      !!(member.suspended || member.restricted) && !selectedIds.has(member.id),
+     getOptionTrailing: (member: MemberOption) =>
+-      member.suspended ? <Badge variant="neutral" size="xs" label={suspendedLabel} /> : undefined,
++      member.suspended ? (
++        <Badge variant="neutral" size="xs" label={suspendedLabel} />
++      ) : member.restricted ? (
++        <Badge variant="neutral" size="xs" label={restrictedLabel} />
++      ) : undefined,
+     renderChip: (member: MemberOption) => (
+       <>
+         <Avatar alt={memberAvatarAlt(member)} src={member.avatar_url ?? ""} size="2xs" />
+diff --git a/packages/i18n/src/locales/en/workspace-settings.json b/packages/i18n/src/locales/en/workspace-settings.json
+index 899aed6..99bfcf6 100644
+--- a/packages/i18n/src/locales/en/workspace-settings.json
++++ b/packages/i18n/src/locales/en/workspace-settings.json
+@@ -7,7 +7,8 @@
+       "name": "Name",
+       "name_placeholder": "e.g. LCH",
+       "email_preview": "Email: {email}",
+-      "owner": "Owner",
++      "owner_only": "Owner only",
++        "owner": "Owner",
+       "owner_default": "Creator (me)",
+       "owner_unset": "Unassigned",
+         "owner": "Owner",
+diff --git a/packages/i18n/src/locales/zh-CN/workspace-settings.json b/packages/i18n/src/locales/zh-CN/workspace-settings.json
+index c57ccee..f09701c 100644
+--- a/packages/i18n/src/locales/zh-CN/workspace-settings.json
++++ b/packages/i18n/src/locales/zh-CN/workspace-settings.json
+@@ -7,7 +7,8 @@
+       "name": "名称",
+       "name_placeholder": "例如 LCH",
+       "email_preview": "邮箱：{email}",
+-      "owner": "归属",
++      "owner_only": "仅归属人可指派",
++        "owner": "归属",
+       "owner_default": "创建者（我）",
+       "owner_unset": "未设置",
+         "owner": "归属",
