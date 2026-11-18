@@ -127,7 +127,7 @@ token 一人一份，不共用、不进仓库。要让 agent 定时接单，可�
 
 ## Agent 会话桥接
 
-- `deploy/plane_threads.py`：一个 work item 对应一个 xiaohe session；轮询 workspace 下**所有项目**（不限于工作台），人类评论转发到该 session，agent 的结果写回 Plane 评论。
+- 实现在小荷技能 `plane-bridge`（`.claude/skills/plane-bridge/`）：一个 work item 对应一个 xiaohe session；轮询 workspace 下**所有项目**（不限于工作台），人类评论转发到该 session，agent 的结果写回 Plane 评论。安装与配置见该技能的 `SKILL.md`。
 - 映射 `~/.xiaohe/plane/threads.json`，锁 `threads.lock` / `agent.lock`，日志 `threads.log`；launchd 每 120 秒一轮，每次最多一个 turn。
 - 取件顺序：可开始的优先 → 优先级（urgent/high/medium/low/none）→ 截止日期（逾期在前）→ 进行中先于待办/Backlog → 最近有活动的先；`start_date` 在未来的新工作项排在所有可开始项之后，但一旦有人回复或进入重试就视为“现在要做”。
 - 失败处理：15 分钟无新输出 → 取消会话并写超时评论；error、无回复、超时都按 1 小时退避重试，最多 3 次；人类新评论会清零重试并立即转发。
