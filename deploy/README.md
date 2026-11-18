@@ -18,7 +18,7 @@
 | agent 身份 | `agent-bot@xiaohe.local`；token `~/.xiaohe/plane/agent-token`（600） |
 | agent MCP | `~/.xiaohe/plane/plane-mcp.sh`；笔记本已注册为 `plane` |
 | 公网入口 | `plane.xiaohe.team` 已代理 Plane；SSO 入口 `/auth/xiaohe/start/` |
-| api 镜像 | `xiaohe-plane-backend:v1.5.0-xh16`（`auth/plane` + 订阅门槛） |
+| api 镜像 | `gitea.xiaohe.team/lzhshou/xiaohe-plane-backend:v1.5.0-xh19`（`auth/plane` + 订阅门槛） |
 | 容器访问 accounts | `extra_hosts: accounts.xiaohe.team:host-gateway`，避免公网 hairpin 超时 |
 | 备份 | 每日 03:17 cron，`~/plane-backups`（Postgres dump + uploads tar，保留 14 天） |
 | 实际内存 | Plane 容器合计约 1.5GiB；host 可用约 4.6GiB |
@@ -28,6 +28,35 @@
 - Docker 29+、`docker-compose-v2`。
 - Docker registry mirror：`https://mirror.ccs.tencentyun.com`（VPS 直连 Docker Hub 会超时）。
 - 目录 `~/plane-selfhost`。
+
+## 0.1 镜像构建（ts-linux-ws 构建，Gitea 仓库分发）
+
+backend 与 web 两个自定义镜像不在 VPS 上构建：VPS 固定 5 Mbps 出网，构建期间的镜像层流量会打满带宽并触发告警。构建在 ts-linux-ws 上完成，推送 Gitea 容器仓库，VPS 只拉取（入网不计费）。
+
+构建机一次性准备：
+
+- docker 已登录 `gitea.xiaohe.team`，凭据写在 `~/.docker/config.json`（600）。
+- `/etc/docker/daemon.json` 配置 `registry-mirrors: ["https://docker.1ms.run"]`（直连 Docker Hub 的 CloudFront 会 reset）与 `insecure-registries: ["100.64.0.4:3000"]`。
+- 源码在 `~/plane-build/xiaohe-plane`，上游前端源码在 `~/plane-web-src`。
+
+构建与推送：
+
+```bash
+# on ts-linux-ws
+cd ~/plane-build/xiaohe-plane
+./scripts/build-and-push.sh v1.5.0-xh19              # backend + web
+COMPONENTS=web ./scripts/build-and-push.sh v1.5.0-xh19
+```
+
+推送走 tailnet 的 `100.64.0.4:3000`（绕开 `gitea.xiaohe.team` 的 nginx 限流），镜像仓库路径与公网名一致，VPS 用公网名拉取即可。
+
+VPS 拉取（登录一次，凭据在 `/root/.docker/config.json`，600）：
+
+```bash
+sudo docker login gitea.xiaohe.team -u git --password-stdin   # 密码从标准输入读，不落 shell 历史
+sudo docker pull gitea.xiaohe.team/lzhshou/xiaohe-plane-backend:v1.5.0-xh19
+sudo docker pull gitea.xiaohe.team/lzhshou/xiaohe-plane-web:v1.5.0-xh19
+```
 
 ## 1. 下载 release 资产
 
@@ -58,6 +87,8 @@ sudo docker compose --env-file plane.env \
 `configure.py` 会把 `__GENERATE__` 替换成独立密码，并把 `DATABASE_URL` / `AMQP_URL` 指向它们；不会打印密钥。
 
 ## 3. 拉取与启动
+
+`pull` 同时会从 Gitea 容器仓库拉取 override 里指定的 backend/web 镜像，需先在 VPS 上登录一次（§0.1）。
 
 ```bash
 sudo docker compose --env-file plane.env \

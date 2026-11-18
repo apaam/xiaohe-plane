@@ -14,8 +14,8 @@
 | 实例 | 中山大学 |
 | 管理员 | `lai.zhengshou@outlook.com`；密码在 `~/.xiaohe/plane/admin-password`（600，break-glass） |
 | 登录 | xiaohe accounts SSO：`/auth/xiaohe/start/?next=/research/`；需有效小荷订阅（管理员豁免）；登录/注册/密码页统一跳 SSO；退出同时清 accounts 会话 |
-| api 镜像 | `xiaohe-plane-backend:v1.5.0-xh16`（auth/plane 适配 + 订阅门槛 + Bots API） |
-| web 镜像 | `xiaohe-plane-web:v1.5.0-xh14`（Billing 订阅、Bots 管理页、收件箱密度与 IME Enter 修复） |
+| api 镜像 | `gitea.xiaohe.team/lzhshou/xiaohe-plane-backend:v1.5.0-xh19`（auth/plane 适配 + 订阅门槛 + Bots API） |
+| web 镜像 | `gitea.xiaohe.team/lzhshou/xiaohe-plane-web:v1.5.0-xh19`（Billing 订阅、Bots 管理页、收件箱密度与 IME Enter 修复） |
 | agent 身份 | `agent-bot@xiaohe.local`；token `~/.xiaohe/plane/agent-token`（600） |
 | agent MCP | `~/.xiaohe/plane/plane-mcp.sh`；笔记本已注册为 `plane` |
 | workspace | 课题组 / `research` |
@@ -77,6 +77,8 @@ uvx plane-mcp-server stdio
 - 合作者不获得 mini 的 shell/tailnet 权限。
 
 ## 6. 备份与升级
+
+- 镜像构建在 ts-linux-ws（`scripts/build-and-push.sh <tag>`），推送到 Gitea 容器仓库，VPS 只拉取；不在 VPS 上 `docker build`，避免打满 5 Mbps 出网。
 
 - 恢复数据库或手工建用户后运行 `deploy/ensure_profiles.py`，补齐 `Profile` 并标记已有 workspace 的用户 onboarded。
 

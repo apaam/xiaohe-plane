@@ -12,7 +12,7 @@
 - `patch_urls.py`：构建时把路由挂进 Plane 的 `authentication/urls.py`，并加载 Page 图片补丁。
 - `asset_inline_patch.py`：让 Page 里的图片以 inline 方式返回，避免显示 “Error loading image”。
 - `Dockerfile`：基于 `makeplane/plane-backend:v1.5.0`。
-- `build.sh`：构建 `xiaohe-plane-backend:v1.5.0-xh16`。
+- `build.sh`：构建 backend 镜像，tag 由 `IMAGE_TAG` 指定（`scripts/build-and-push.sh` 会传完整的仓库地址）。
 
 ## 环境变量
 
@@ -25,18 +25,15 @@
 
 ## 构建
 
-```bash
-cd auth/plane
-./build.sh
-```
-
-在 VPS 上构建时，把本目录 scp 过去：
+在 ts-linux-ws 上构建并推送到 Gitea 容器仓库，VPS 只拉取（VPS 出网固定 5 Mbps，不在上面构建）：
 
 ```bash
-ssh ts-xiaohe 'mkdir -p ~/xiaohe-plane-auth'
-scp -q auth/plane/* ts-xiaohe:~/xiaohe-plane-auth/
-ssh ts-xiaohe 'cd ~/xiaohe-plane-auth && sudo docker build -t xiaohe-plane-backend:v1.5.0-xh16 .'
+# on ts-linux-ws, repo at ~/plane-build/xiaohe-plane
+./scripts/build-and-push.sh v1.5.0-xh19                    # backend + web
+COMPONENTS=backend ./scripts/build-and-push.sh v1.5.0-xh19 # 只做 backend
 ```
+
+产物：`gitea.xiaohe.team/lzhshou/xiaohe-plane-backend:<tag>`（`auth/plane/build.sh` 的 tag 由 `IMAGE_TAG` 指定，基础镜像 `makeplane/plane-backend:v1.5.0` 需已在构建机上）。
 
 ## 部署
 
@@ -44,7 +41,7 @@ ssh ts-xiaohe 'cd ~/xiaohe-plane-auth && sudo docker build -t xiaohe-plane-backe
 
 ```yaml
   api:
-    image: xiaohe-plane-backend:v1.5.0-xh16
+    image: gitea.xiaohe.team/lzhshou/xiaohe-plane-backend:v1.5.0-xh19
     environment:
       XIAOHE_ACCOUNTS_URL: https://accounts.xiaohe.team
       XIAOHE_OAUTH_CLIENT_ID: plane

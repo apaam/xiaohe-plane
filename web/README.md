@@ -15,20 +15,23 @@ Plane 上游前端原样构建，只在构建时打几个小补丁，不改业�
 | `0010-inbox-notification-list-density.patch` | 收件箱通知列表：收紧条目上下留白，选中项改用可见的选中背景，补 hover 反馈 |
 | `0011-remove-sidebar-help-container.patch` | 侧栏底部 Community 徽标移除后遗留的容器与分隔线 |
 | `0012-fix-ime-enter-comment.patch` | 评论框输入中文时按 Enter 只上屏候选词，不再误发送（新建与编辑评论框） |
-| `0013-workspace-bots.patch` | Workspace Settings 增加 Bots 页：管理员创建/轮换/停用成员 bot |
+| `0013-workspace-bots.patch` | Workspace Settings 增加 Bots 页：管理员创建/轮换/停用成员 bot，并改归属人 |
 | `0014-restrict-bot-assignee.patch` | 非归属人/非管理员的 bot 在成员下拉框中灰色显示并标注 Owner only |
 
 ## 构建
 
-在 VPS 上（源码克隆到 `~/plane-web-src`，不 vendor 进仓）：
+在 ts-linux-ws 上构建并推送到 Gitea 容器仓库，VPS 只拉取（VPS 出网固定 5 Mbps，不在上面构建）。
+上游源码克隆到构建机的 `~/plane-web-src`，不 vendor 进仓：
 
 ```bash
-DOCKER="sudo docker" ./web/build.sh
-# 产物：xiaohe-plane-web:v1.5.0-xh14
+# on ts-linux-ws, repo at ~/plane-build/xiaohe-plane
+COMPONENTS=web ./scripts/build-and-push.sh v1.5.0-xh19
+# 产物：gitea.xiaohe.team/lzhshou/xiaohe-plane-web:v1.5.0-xh19
 ```
 
 脚本先 `git clone --depth 1 --branch v1.5.0` 上游源码，重置到 tag，打补丁，再用上游
-`apps/web/Dockerfile.web` 构建。首次构建需要拉 node/caddy 镜像并安装前端依赖，约 15–30 分钟。
+`apps/web/Dockerfile.web` 构建 `installer` 阶段（只编前端，Caddy 沿用上游镜像）。
+首次构建需要拉 node 镜像并安装前端依赖，约 15–30 分钟；基础镜像 `makeplane/plane-frontend:v1.5.0` 与 `node:22-alpine` 需已在构建机上。
 
 ## 部署
 
@@ -36,7 +39,7 @@ DOCKER="sudo docker" ./web/build.sh
 
 ```yaml
   web:
-    image: xiaohe-plane-web:v1.5.0-xh14
+    image: gitea.xiaohe.team/lzhshou/xiaohe-plane-web:v1.5.0-xh19
 ```
 
 仍挂载 `web-Caddyfile`（放宽静态资源限流到 10000/min）。
@@ -51,7 +54,8 @@ sudo docker compose --env-file plane.env \
 
 ## 回滚
 
-把 `web.image` 改回 `makeplane/plane-web:v1.5.0`，重建 `web` 容器即可。
+把 `web.image` 改回上一个 tag（VPS 上仍保留的本地镜像），重建 `web` 容器即可。
+Gitea 仓库里同一 tag 也仍在，可直接拉取历史版本。
 
 ## 说明
 
