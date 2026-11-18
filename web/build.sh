@@ -55,3 +55,8 @@ $DOCKER build -f "$REPO_ROOT/web/Dockerfile.runtime" \
   -t "$IMAGE_TAG" "$REPO_ROOT/web"
 
 echo "built $IMAGE_TAG"
+
+# The build image only exists to hand its compiled assets to Dockerfile.runtime
+# via COPY --from. Drop it now that the runtime image is built, so repeated
+# builds do not pile up dead tags on this shared daemon.
+$DOCKER rmi "$BUILD_IMAGE"

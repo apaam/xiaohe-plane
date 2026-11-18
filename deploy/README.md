@@ -139,6 +139,52 @@ sudo docker compose --env-file plane.env -f docker-compose.yaml -f docker-compos
 sudo docker compose --env-file plane.env -f docker-compose.yaml -f docker-compose.override.yml down -v
 ```
 
+### 部署后清理
+
+只在验收通过后执行。以下任一项不满足就先不清，保留现场：
+
+- `docker compose ps` 全部服务 `healthy` / `running`；
+- `curl -I https://plane.xiaohe.team/` 与 `curl -I https://plane.xiaohe.team/uploads/` 正常；
+- SSO 能从 `/auth/xiaohe/start/` 登录并进入 workspace。
+
+保留：当前运行的 backend / web 镜像，外加两个前缀各自最近 2 个可回滚 tag。
+
+只删：
+
+- `^xiaohe-plane-backend:`、`^xiaohe-plane-web:` 下比保留集更旧的 tag；
+- `xiaohe-plane-web-build:*` 中间镜像（`web/build.sh` 构建成功后会自动删，只剩残留的才手工清）。
+
+方式：先 `docker images` 列清单，核对后用显式 `docker rmi <tag>` 逐个删。**不要用 `docker image prune -a` 或 `docker system prune`**：这台 daemon 多租户共用，上面有 `hetu-app/*`、`xiaohe-review:*` 和手工备份镜像，prune 会把它们一起清掉且不可恢复。
+
+清理前后各记一次磁盘：
+
+```bash
+df -h /
+sudo docker system df
+```
+
+可用空间低于 15 GB 时在 `docs/RUNBOOK.md` 记一条告警；删掉的镜像名与时间写进当次部署记录。
+
+可直接复制的清单与删除命令：
+
+```bash
+# 当前在用的镜像：保留
+sudo docker compose --env-file plane.env -f docker-compose.yaml -f docker-compose.override.yml \
+  ps --format '{{.Image}}' | grep -E '^xiaohe-plane-(backend|web):'
+
+# 候选：每个前缀按创建时间倒序，跳过前 3 个（当前 + 2 个回滚点），其余列出
+for prefix in xiaohe-plane-backend xiaohe-plane-web; do
+  docker images --format '{{.CreatedAt}}  {{.Repository}}:{{.Tag}}  {{.Size}}' "$prefix" \
+    | sort -r | tail -n +4
+done
+
+# 中间构建镜像
+docker images --format '{{.CreatedAt}}  {{.Repository}}:{{.Tag}}  {{.Size}}' xiaohe-plane-web-build
+
+# 核对清单后逐个显式删除，保留集不要动
+docker rmi xiaohe-plane-web:v1.5.0-xh13 xiaohe-plane-web-build:v1.5.0
+```
+
 ## 8. 注意
 
 - 4GB 是**上限**，不是常驻占用；当前 worker 接近 384MiB 上限，若 OOM 先调高 worker 并下调 db 的 `mem_limit`，保持总和约 4GB。

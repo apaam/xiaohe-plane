@@ -63,6 +63,8 @@ curl -sS -D - -o /dev/null "http://127.0.0.1:8080/auth/xiaohe/start/?next=/resea
 # 302 → https://accounts.xiaohe.team/oauth/authorize?client_id=plane...
 ```
 
+部署验收通过后清理旧镜像，见 `deploy/README.md` §7“部署后清理”。
+
 ## 回滚
 
 ```bash

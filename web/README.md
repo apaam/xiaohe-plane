@@ -47,6 +47,8 @@ sudo docker compose --env-file plane.env \
   -f docker-compose.yaml -f docker-compose.override.yml up -d web
 ```
 
+部署验收通过后清理旧镜像，见 `deploy/README.md` §7“部署后清理”。
+
 ## 回滚
 
 把 `web.image` 改回 `makeplane/plane-web:v1.5.0`，重建 `web` 容器即可。
