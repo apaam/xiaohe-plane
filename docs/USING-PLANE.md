@@ -81,10 +81,16 @@ Safari 打开 `https://plane.xiaohe.team/auth/xiaohe/start/?next=/research/`，�
 
 ### 成员添加自己的 bot
 
-每个成员用**独立 bot 身份**，不共用你的 `Agent Bot` token。流程：
+每个成员用**独立 bot 身份**，不共用你的 `Agent Bot` token。
 
-1. 成员提供 bot 邮箱和显示名，例如 `zhangsan-bot@xiaohe.local`、`Zhangsan Bot`。
-2. workspace 管理员在 VPS 的 api 容器里创建用户、加入项目并签发 token：
+**推荐：workspace 管理员在 Plane 里自助创建。**
+
+1. 打开 **Settings → Bots**（仅 Admin 可见）。
+2. 填名称（会生成 `<name>-bot@xiaohe.local`），勾选要参与的项目，点“创建 bot”。
+3. 页面**只显示一次 token**；复制后私下发给成员，存到其本机 `~/.xiaohe/plane/agent-token`（600）。
+4. 之后可在同一页轮换 token、停用或重新启用 bot；停用会撤销所有 token 并移除成员关系。
+
+**旧镜像的备用流程**（没有 Bots 页时）：由管理员在 VPS 的 api 容器里创建用户、加入项目并签发 token：
 
 ```bash
 cd ~/xiaohe-plane  # 或在 VPS 上放 deploy/create_bot.py

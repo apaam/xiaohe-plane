@@ -68,7 +68,7 @@
   - 302 到 session 里的 `next`（只允许站内相对路径）；没有 `next` 时落到用户最后访问/最早加入的 workspace，无 workspace 则落 `/onboarding/` 自建。
 - URL 接入：在 Plane 的 URLconf 加 start/callback/logout 三条路由。
 - 前端补丁 `0007-sso-only-auth.patch`：登录、注册、找回/重设密码页跳 SSO；未登录访问受保护页面直接跳 SSO；退出表单改到 `/auth/xiaohe/logout/`。
-- 构建：`FROM makeplane/plane-backend:v1.5.0`，复制模块并 patch URLconf；镜像 tag `xiaohe-plane-backend:v1.5.0-xh11`。
+- 构建：`FROM makeplane/plane-backend:v1.5.0`，复制模块并 patch URLconf；镜像 tag `xiaohe-plane-backend:v1.5.0-xh12`。
 - `/auth/xiaohe/logout/`（POST，带 CSRF）：先清 Plane session，再跳 accounts `/logout?next=https://plane.xiaohe.team/`，同时清 accounts 会话；否则 SSO 会立刻把用户登回去。
 - compose override 替换 `api` 和 `web` 镜像；worker/beat 继续用上游镜像。
 
@@ -104,7 +104,7 @@
 ## 迁移步骤
 
 1. [x] accounts 加 plane client / redirect，测试并部署。
-2. [x] 构建 `xiaohe-plane-backend:v1.5.0-xh11`，staging + mock accounts 跑通。
+2. [x] 构建 `xiaohe-plane-backend:v1.5.0-xh12`，staging + mock accounts 跑通。
 3. [x] compose 替换 api 镜像；旧镜像可回滚。
 4. [x] apps 门户指向 `/auth/xiaohe/start/`。
 5. [ ] 真实 accounts 账号浏览器登录验收；本地密码仅作 API break-glass。
