@@ -48,7 +48,7 @@ index 0000000..ef64e69
 +});
 diff --git a/apps/web/app/(all)/[workspaceSlug]/(settings)/settings/(workspace)/bots/page.tsx b/apps/web/app/(all)/[workspaceSlug]/(settings)/settings/(workspace)/bots/page.tsx
 new file mode 100644
-index 0000000..84b9476
+index 0000000..399c271
 --- /dev/null
 +++ b/apps/web/app/(all)/[workspaceSlug]/(settings)/settings/(workspace)/bots/page.tsx
 @@ -0,0 +1,291 @@
@@ -122,7 +122,7 @@ index 0000000..84b9476
 +      setBots([]);
 +      setToast({
 +        type: "error",
-+        title: t("workspace_settings.settings.bots.failed"),
++        title: t("workspace_settings.bots.failed"),
 +        message: String(error?.response?.data?.error ?? error?.message ?? ""),
 +      });
 +    });
@@ -141,11 +141,11 @@ index 0000000..84b9476
 +      setName("");
 +      setSelected([]);
 +      await load();
-+      setToast({ type: "success", title: t("workspace_settings.settings.bots.created") });
++      setToast({ type: "success", title: t("workspace_settings.bots.created") });
 +    } catch (error: any) {
 +      setToast({
 +        type: "error",
-+        title: t("workspace_settings.settings.bots.failed"),
++        title: t("workspace_settings.bots.failed"),
 +        message: String(error?.response?.data?.error ?? error?.message ?? ""),
 +      });
 +    } finally {
@@ -160,12 +160,12 @@ index 0000000..84b9476
 +      if (action === "rotate") setToken(res.data?.token ?? null);
 +      await load();
 +      if (action === "rotate") {
-+        setToast({ type: "success", title: t("workspace_settings.settings.bots.rotated") });
++        setToast({ type: "success", title: t("workspace_settings.bots.rotated") });
 +      }
 +    } catch (error: any) {
 +      setToast({
 +        type: "error",
-+        title: t("workspace_settings.settings.bots.failed"),
++        title: t("workspace_settings.bots.failed"),
 +        message: String(error?.response?.data?.error ?? error?.message ?? ""),
 +      });
 +    } finally {
@@ -176,11 +176,11 @@ index 0000000..84b9476
 +  const copyToken = async () => {
 +    if (!token) return;
 +    await navigator.clipboard.writeText(token);
-+    setToast({ type: "success", title: t("workspace_settings.settings.bots.copied") });
++    setToast({ type: "success", title: t("workspace_settings.bots.copied") });
 +  };
 +
 +  const pageTitle = currentWorkspace?.name
-+    ? `${currentWorkspace.name} - ${t("workspace_settings.settings.bots.title")}`
++    ? `${currentWorkspace.name} - ${t("workspace_settings.bots.title")}`
 +    : undefined;
 +
 +  if (workspaceUserInfo && !isAdmin) {
@@ -192,14 +192,14 @@ index 0000000..84b9476
 +      <PageHead title={pageTitle} />
 +      <div className="flex w-full flex-col gap-4">
 +        <SettingsHeading
-+          title={t("workspace_settings.settings.bots.title")}
-+          description={t("workspace_settings.settings.bots.description")}
++          title={t("workspace_settings.bots.title")}
++          description={t("workspace_settings.bots.description")}
 +          control={
 +            <Button
 +              variant="primary"
 +              size="md"
 +              stretch="auto"
-+              label={t("workspace_settings.settings.bots.create")}
++              label={t("workspace_settings.bots.create")}
 +              onClick={() => setShowForm(true)}
 +            />
 +          }
@@ -208,16 +208,16 @@ index 0000000..84b9476
 +        {token && (
 +          <div className="rounded-lg border border-subtle bg-surface-1 p-4">
 +            <p className="text-body-sm-medium text-primary">
-+              {t("workspace_settings.settings.bots.token_title")}
++              {t("workspace_settings.bots.token_title")}
 +            </p>
 +            <p className="mt-1 text-body-xs-regular text-tertiary">
-+              {t("workspace_settings.settings.bots.token_hint")}
++              {t("workspace_settings.bots.token_hint")}
 +            </p>
 +            <div className="mt-3 flex items-center gap-2">
 +              <code className="flex-1 overflow-x-auto rounded border border-subtle bg-surface-2 px-3 py-2 text-body-xs-regular text-primary">
 +                {token}
 +              </code>
-+              <Button variant="secondary" size="md" stretch="auto" label={t("workspace_settings.settings.bots.copy")} onClick={copyToken} />
++              <Button variant="secondary" size="md" stretch="auto" label={t("workspace_settings.bots.copy")} onClick={copyToken} />
 +            </div>
 +          </div>
 +        )}
@@ -225,17 +225,17 @@ index 0000000..84b9476
 +        {showForm && (
 +          <div className="rounded-lg border border-subtle bg-surface-1 p-4">
 +            <label className="text-body-sm-medium text-primary" htmlFor="bot-name">
-+              {t("workspace_settings.settings.bots.name")}
++              {t("workspace_settings.bots.name")}
 +            </label>
 +            <input
 +              id="bot-name"
 +              className="mt-2 w-full rounded border border-subtle bg-surface-2 px-3 py-2 text-body-sm-regular text-primary"
-+              placeholder={t("workspace_settings.settings.bots.name_placeholder")}
++              placeholder={t("workspace_settings.bots.name_placeholder")}
 +              value={name}
 +              onChange={(event) => setName(event.target.value)}
 +            />
 +            <p className="mt-2 text-body-xs-regular text-tertiary">
-+              {t("workspace_settings.settings.bots.projects")}
++              {t("workspace_settings.bots.projects")}
 +            </p>
 +            <div className="mt-2 grid gap-1">
 +              {projects.map((project) => (
@@ -260,7 +260,7 @@ index 0000000..84b9476
 +                variant="primary"
 +                size="md"
 +                stretch="auto"
-+                label={t("workspace_settings.settings.bots.submit")}
++                label={t("workspace_settings.bots.submit")}
 +                onClick={createBot}
 +                disabled={busy || !name.trim()}
 +              />
@@ -268,7 +268,7 @@ index 0000000..84b9476
 +                variant="secondary"
 +                size="md"
 +                stretch="auto"
-+                label={t("workspace_settings.settings.bots.cancel")}
++                label={t("workspace_settings.bots.cancel")}
 +                onClick={() => setShowForm(false)}
 +              />
 +            </div>
@@ -279,7 +279,7 @@ index 0000000..84b9476
 +          <p className="text-body-sm-regular text-tertiary">Loading…</p>
 +        ) : bots.length === 0 ? (
 +          <p className="text-body-sm-regular text-tertiary">
-+            {t("workspace_settings.settings.bots.empty")}
++            {t("workspace_settings.bots.empty")}
 +          </p>
 +        ) : (
 +          <div className="divide-y divide-subtle rounded-lg border border-subtle bg-surface-1">
@@ -297,18 +297,18 @@ index 0000000..84b9476
 +                      }
 +                    >
 +                      {bot.is_active
-+                        ? t("workspace_settings.settings.bots.active")
-+                        : t("workspace_settings.settings.bots.disabled")}
++                        ? t("workspace_settings.bots.active")
++                        : t("workspace_settings.bots.disabled")}
 +                    </span>
 +                  </div>
 +                  <span className="text-body-xs-regular text-tertiary">
 +                    {bot.projects.length > 0
 +                      ? bot.projects.map((project) => `${project.identifier} · ${project.name}`).join(", ")
-+                      : t("workspace_settings.settings.bots.projects") + ": —"}
++                      : t("workspace_settings.bots.projects") + ": —"}
 +                  </span>
 +                  <span className="text-body-xs-regular text-tertiary">
-+                    {t("workspace_settings.settings.bots.last_used")}:{" "}
-+                    {bot.last_used ?? t("workspace_settings.settings.bots.never")}
++                    {t("workspace_settings.bots.last_used")}:{" "}
++                    {bot.last_used ?? t("workspace_settings.bots.never")}
 +                  </span>
 +                </div>
 +                <div className="flex items-center gap-2">
@@ -316,7 +316,7 @@ index 0000000..84b9476
 +                    variant="secondary"
 +                    size="md"
 +                    stretch="auto"
-+                    label={t("workspace_settings.settings.bots.rotate")}
++                    label={t("workspace_settings.bots.rotate")}
 +                    onClick={() => runAction(bot, "rotate")}
 +                    disabled={busy}
 +                  />
@@ -326,8 +326,8 @@ index 0000000..84b9476
 +                    stretch="auto"
 +                    label={
 +                      bot.is_active
-+                        ? t("workspace_settings.settings.bots.disable")
-+                        : t("workspace_settings.settings.bots.enable")
++                        ? t("workspace_settings.bots.disable")
++                        : t("workspace_settings.bots.enable")
 +                    }
 +                    onClick={() => runAction(bot, bot.is_active ? "disable" : "enable")}
 +                    disabled={busy}
@@ -343,6 +343,21 @@ index 0000000..84b9476
 +}
 +
 +export default observer(BotsSettingsPage);
+diff --git a/apps/web/app/routes/core.ts b/apps/web/app/routes/core.ts
+index c9c82bd..2f9ec50 100644
+--- a/apps/web/app/routes/core.ts
++++ b/apps/web/app/routes/core.ts
+@@ -282,6 +282,10 @@ export const coreRoutes: RouteConfigEntry[] = [
+             ":workspaceSlug/settings/webhooks/:webhookId",
+             "./(all)/[workspaceSlug]/(settings)/settings/(workspace)/webhooks/[webhookId]/page.tsx"
+           ),
++          route(
++            ":workspaceSlug/settings/bots",
++            "./(all)/[workspaceSlug]/(settings)/settings/(workspace)/bots/page.tsx"
++          ),
+         ]),
+ 
+         // --------------------------------------------------------------------
 diff --git a/apps/web/components/settings/workspace/sidebar/item-icon.tsx b/apps/web/components/settings/workspace/sidebar/item-icon.tsx
 index 18f9ce1..8df21f1 100644
 --- a/apps/web/components/settings/workspace/sidebar/item-icon.tsx
@@ -356,7 +371,7 @@ index 18f9ce1..8df21f1 100644
    "billing-and-plans": BillingsOutline,
    webhooks: WebhooksOutline,
 diff --git a/packages/constants/src/settings/workspace.ts b/packages/constants/src/settings/workspace.ts
-index e9d326e..45e0f54 100644
+index e9d326e..4d53f00 100644
 --- a/packages/constants/src/settings/workspace.ts
 +++ b/packages/constants/src/settings/workspace.ts
 @@ -41,6 +41,13 @@ export const WORKSPACE_SETTINGS: Record<TWorkspaceSettingsTabs, TWorkspaceSettin
@@ -365,7 +380,7 @@ index e9d326e..45e0f54 100644
    },
 +  bot: {
 +    key: "bot",
-+    i18n_label: "workspace_settings.settings.bots.title",
++    i18n_label: "workspace_settings.bots.title",
 +    href: `/settings/bots`,
 +    access: [EUserWorkspaceRoles.ADMIN],
 +    highlight: (pathname: string, baseUrl: string) => pathname === `${baseUrl}/settings/bots/`,
@@ -382,107 +397,77 @@ index e9d326e..45e0f54 100644
      WORKSPACE_SETTINGS["export"],
    ],
 diff --git a/packages/i18n/src/locales/en/workspace-settings.json b/packages/i18n/src/locales/en/workspace-settings.json
-index db85d0b..a9c8636 100644
+index 5804cfa..d3e764a 100644
 --- a/packages/i18n/src/locales/en/workspace-settings.json
 +++ b/packages/i18n/src/locales/en/workspace-settings.json
-@@ -69,13 +69,40 @@
-         "description": "Manage access to this workspace.",
-         "leave_title": "Leave workspace?"
-       },
-+      "bots": {
-+        "title": "Bots",
-+        "description": "Create bot accounts for agents. Each bot has its own API token and project access.",
-+        "create": "Create bot",
-+        "name": "Name",
-+        "name_placeholder": "e.g. LCH",
-+        "email_preview": "Email: {email}",
-+        "projects": "Projects",
-+        "submit": "Create",
-+        "cancel": "Cancel",
-+        "token_title": "API token (shown once)",
-+        "token_hint": "Give it to the agent; store it at ~/.xiaohe/plane/agent-token with mode 600.",
-+        "copy": "Copy",
-+        "copied": "Copied",
-+        "rotate": "Rotate token",
-+        "disable": "Disable",
-+        "enable": "Enable",
-+        "active": "Active",
-+        "disabled": "Disabled",
-+        "empty": "No bots yet.",
-+        "last_used": "Last used",
-+        "never": "Never",
-+        "created": "Bot created",
-+        "rotated": "Token rotated",
-+        "failed": "Request failed"
-+      },
-       "billing_and_plans": {
--        "heading": "Billing & Plans",
--        "description": "Choose your plan, manage subscriptions, and easily upgrade as your needs grow.",
--        "title": "Billing & Plans",
--        "current_plan": "Current plan",
--        "free_plan": "You are currently using the free plan",
--        "view_plans": "View plans"
-+        "heading": "Subscription",
-+        "description": "Plane access is managed by your Xiaohe subscription. View or renew it in Accounts; return to Plane after purchase.",
-+        "title": "Subscription",
-+        "current_plan": "Xiaohe subscription",
-+        "free_plan": "Plane access is managed by your Xiaohe subscription.",
-+        "view_plans": "Manage subscription",
-+        "billing_link": "Billing"
-       },
-       "exports": {
-         "heading": "Exports",
+@@ -1,5 +1,31 @@
+ {
+   "workspace_settings": {
++    "bots": {
++      "title": "Bots",
++      "description": "Create bot accounts for agents. Each bot has its own API token and project access.",
++      "create": "Create bot",
++      "name": "Name",
++      "name_placeholder": "e.g. LCH",
++      "email_preview": "Email: {email}",
++      "projects": "Projects",
++      "submit": "Create",
++      "cancel": "Cancel",
++      "token_title": "API token (shown once)",
++      "token_hint": "Give it to the agent; store it at ~/.xiaohe/plane/agent-token with mode 600.",
++      "copy": "Copy",
++      "copied": "Copied",
++      "rotate": "Rotate token",
++      "disable": "Disable",
++      "enable": "Enable",
++      "active": "Active",
++      "disabled": "Disabled",
++      "empty": "No bots yet.",
++      "last_used": "Last used",
++      "never": "Never",
++      "created": "Bot created",
++      "rotated": "Token rotated",
++      "failed": "Request failed"
++    },
+     "label": "Workspace settings",
+     "page_label": "{workspace} - General settings",
+     "key_created": "Key created",
 diff --git a/packages/i18n/src/locales/zh-CN/workspace-settings.json b/packages/i18n/src/locales/zh-CN/workspace-settings.json
-index d6db4f0..32761e8 100644
+index 3823c40..c65f96b 100644
 --- a/packages/i18n/src/locales/zh-CN/workspace-settings.json
 +++ b/packages/i18n/src/locales/zh-CN/workspace-settings.json
-@@ -69,13 +69,40 @@
-         "description": "管理对此工作区的访问权限。",
-         "leave_title": "离开工作区？"
-       },
-+      "bots": {
-+        "title": "机器人",
-+        "description": "为 agent 创建机器人账号；每个 bot 有独立 token 和项目权限。",
-+        "create": "新建 bot",
-+        "name": "名称",
-+        "name_placeholder": "例如 LCH",
-+        "email_preview": "邮箱：{email}",
-+        "projects": "项目",
-+        "submit": "创建",
-+        "cancel": "取消",
-+        "token_title": "API token（只显示一次）",
-+        "token_hint": "交给 agent，存到 ~/.xiaohe/plane/agent-token（600）。",
-+        "copy": "复制",
-+        "copied": "已复制",
-+        "rotate": "轮换 token",
-+        "disable": "停用",
-+        "enable": "启用",
-+        "active": "启用中",
-+        "disabled": "已停用",
-+        "empty": "还没有 bot。",
-+        "last_used": "最后使用",
-+        "never": "未使用",
-+        "created": "bot 已创建",
-+        "rotated": "token 已轮换",
-+        "failed": "请求失败"
-+      },
-       "billing_and_plans": {
--        "heading": "账单与计划",
--        "description": "选择您的计划、管理订阅，并随着需求增长轻松升级。",
--        "title": "账单与计划",
--        "current_plan": "当前计划",
--        "free_plan": "您目前使用的是免费计划",
--        "view_plans": "查看计划"
-+        "heading": "订阅",
-+        "description": "Plane 的访问权限由小荷订阅统一管理。可在账号中心查看或续订，购买后回到 Plane 登录即可。",
-+        "title": "订阅",
-+        "current_plan": "小荷订阅",
-+        "free_plan": "Plane 的访问权限由小荷订阅统一管理。",
-+        "view_plans": "管理订阅",
-+        "billing_link": "账单"
-       },
-       "exports": {
-         "heading": "导出",
+@@ -1,5 +1,31 @@
+ {
+   "workspace_settings": {
++    "bots": {
++      "title": "机器人",
++      "description": "为 agent 创建机器人账号；每个 bot 有独立 token 和项目权限。",
++      "create": "新建 bot",
++      "name": "名称",
++      "name_placeholder": "例如 LCH",
++      "email_preview": "邮箱：{email}",
++      "projects": "项目",
++      "submit": "创建",
++      "cancel": "取消",
++      "token_title": "API token（只显示一次）",
++      "token_hint": "交给 agent，存到 ~/.xiaohe/plane/agent-token（600）。",
++      "copy": "复制",
++      "copied": "已复制",
++      "rotate": "轮换 token",
++      "disable": "停用",
++      "enable": "启用",
++      "active": "启用中",
++      "disabled": "已停用",
++      "empty": "还没有 bot。",
++      "last_used": "最后使用",
++      "never": "未使用",
++      "created": "bot 已创建",
++      "rotated": "token 已轮换",
++      "failed": "请求失败"
++    },
+     "label": "工作区设置",
+     "page_label": "{workspace} - 常规设置",
+     "key_created": "密钥已创建",
 diff --git a/packages/types/src/settings.ts b/packages/types/src/settings.ts
 index c9df62f..a1509a1 100644
 --- a/packages/types/src/settings.ts

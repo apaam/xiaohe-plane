@@ -23,11 +23,7 @@ Plane 上游前端原样构建，只在构建时打几个小补丁，不改业�
 
 ```bash
 DOCKER="sudo docker" ./web/build.sh
-<<<<<<< HEAD
 # 产物：xiaohe-plane-web:v1.5.0-xh12
-=======
-# 产物：xiaohe-plane-web:v1.5.0-xh10
->>>>>>> dad79f2 (feat(bots): let workspace admins create and manage agent bots)
 ```
 
 脚本先 `git clone --depth 1 --branch v1.5.0` 上游源码，重置到 tag，打补丁，再用上游

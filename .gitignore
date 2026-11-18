@@ -5,3 +5,4 @@ plane.env
 *.token
 admin-password
 backups/
+.playwright-cli/
