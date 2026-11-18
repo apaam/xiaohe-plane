@@ -33,7 +33,9 @@ TOKEN_PATH = ROOT / "agent-token"
 LOG_PATH = ROOT / "threads.log"
 
 PLANE_BASE = "https://plane.xiaohe.team/api/v1/workspaces/research"
-PROJECT_ID = "6d062317-9df2-4dcb-8943-e40409199bf1"
+# Threads created before multi-project support have no project_id; they all
+# live in the personal workbench.
+LEGACY_PROJECT_ID = "6d062317-9df2-4dcb-8943-e40409199bf1"
 BOT_EMAIL = "agent-bot@xiaohe.local"
 WORKSPACE = str(Path.home() / "workspace")
 ACTIVE_GROUPS = {"backlog", "unstarted", "started"}
@@ -235,6 +237,7 @@ def mark_failure(
 ) -> None:
     """Record a failed turn and schedule a bounded automatic retry."""
     identifier = str(thread.get("identifier") or item_id)
+    project_id = str(thread.get("project_id") or LEGACY_PROJECT_ID)
     release_agent_lock(identifier)
     now = datetime.now(timezone.utc)
     attempts = int(thread.get("auto_retries") or 0) + 1
@@ -249,12 +252,14 @@ def mark_failure(
     if attempts == 1:
         plane_comment(
             token,
+            project_id,
             item_id,
             f"{message}\n\n将在 1 小时后自动重试（最多 {MAX_AUTO_RETRIES} 次）。",
         )
     elif attempts >= MAX_AUTO_RETRIES:
         plane_comment(
             token,
+            project_id,
             item_id,
             f"{message}\n\n已自动重试 {attempts} 次仍未完成，暂停自动处理，"
             "等待人工回复后再继续。",
@@ -307,10 +312,10 @@ def clear_pending(thread: dict) -> None:
     thread["auto_retries"] = 0
 
 
-def plane_comment(token: str, item_id: str, text: str) -> None:
+def plane_comment(token: str, project_id: str, item_id: str, text: str) -> None:
     status, data = http_json(
         "POST",
-        PLANE_BASE + f"/projects/{PROJECT_ID}/work-items/{item_id}/comments/",
+        PLANE_BASE + f"/projects/{project_id}/work-items/{item_id}/comments/",
         {"X-API-Key": token, "Accept": "application/json"},
         {"comment_html": f"<p>{html.escape(text)}</p>"},
     )
@@ -341,8 +346,10 @@ def actor_map(members: list) -> dict:
     }
 
 
-def get_comments(token: str, item_id: str) -> list:
-    data = plane_get(f"/projects/{PROJECT_ID}/work-items/{item_id}/comments/", token)
+def get_comments(token: str, project_id: str, item_id: str) -> list:
+    data = plane_get(
+        f"/projects/{project_id}/work-items/{item_id}/comments/", token
+    )
     rows = data.get("results", data) if isinstance(data, dict) else data
     return rows if isinstance(rows, list) else []
 
@@ -374,14 +381,20 @@ def human_comments(rows: list, bot_id: str, actors: dict) -> list:
     return result
 
 
-def initial_prompt(item: dict, comments: list, state_group: str) -> str:
-    identifier = f"WORK-{item.get('sequence_id')}"
+def initial_prompt(
+    item: dict,
+    project_identifier: str,
+    project_id: str,
+    comments: list,
+    state_group: str,
+) -> str:
+    identifier = f"{project_identifier}-{item.get('sequence_id')}"
     lines = [
         f"你是 Mac mini 上负责 Plane 工作项的 agent。这个会话只负责 {identifier}（ID `{item.get('id')}`）。",
         "",
         f"标题：{item.get('name')}",
         f"当前状态：{state_group}",
-        f"工作项 URL：https://plane.xiaohe.team/research/projects/{PROJECT_ID}/issues/{item.get('id')}",
+        f"工作项 URL：https://plane.xiaohe.team/research/projects/{project_id}/issues/{item.get('id')}",
         "",
     ]
     description = strip_html(str(item.get("description_html") or ""))
@@ -411,8 +424,8 @@ def initial_prompt(item: dict, comments: list, state_group: str) -> str:
     return "\n".join(lines)
 
 
-def resume_prompt(item: dict, comments: list) -> str:
-    identifier = f"WORK-{item.get('sequence_id')}"
+def resume_prompt(item: dict, project_identifier: str, comments: list) -> str:
+    identifier = f"{project_identifier}-{item.get('sequence_id')}"
     lines = [
         f"这是 {identifier} 的新用户评论。请继续同一个工作项，不要处理其他项。",
         "",
@@ -535,68 +548,117 @@ def main() -> int:
             members = members.get("results", [])
         bot_id = find_bot_id(members)
         actors = actor_map(members)
-        states = plane_get(f"/projects/{PROJECT_ID}/states/", token)
-        state_rows = states.get("results", states) if isinstance(states, dict) else states
-        state_map = {str(row.get("id")): row for row in state_rows}
-        items = plane_get(f"/projects/{PROJECT_ID}/work-items/", token)
-        rows = items.get("results", items) if isinstance(items, dict) else items
+        projects = plane_get("/projects/", token)
+        project_rows = (
+            projects.get("results", projects)
+            if isinstance(projects, dict)
+            else projects
+        )
 
         candidates = []
-        for item in rows:
-            item_id = str(item.get("id") or "")
-            if not item_id:
+        for project in project_rows:
+            project_id = str(project.get("id") or "")
+            project_identifier = str(project.get("identifier") or "PROJ")
+            if not project_id:
                 continue
-            group = str((state_map.get(str(item.get("state"))) or {}).get("group") or "")
-            if group in DONE_GROUPS:
+            try:
+                states = plane_get(f"/projects/{project_id}/states/", token)
+                state_rows = (
+                    states.get("results", states)
+                    if isinstance(states, dict)
+                    else states
+                )
+                state_map = {str(row.get("id")): row for row in state_rows}
+                items = plane_get(f"/projects/{project_id}/work-items/", token)
+            except RuntimeError as exc:
+                log(f"project {project_identifier} skipped: {exc}")
                 continue
-            if bot_id not in [str(value) for value in item.get("assignees") or []]:
-                continue
-            comments = get_comments(token, item_id)
-            humans = human_comments(comments, bot_id, actors)
-            thread = threads.get(item_id)
-            if thread:
-                retry_after = thread.get("retry_after")
-                try:
-                    if retry_after and float(retry_after) > time.time():
+            rows = items.get("results", items) if isinstance(items, dict) else items
+            for item in rows:
+                item_id = str(item.get("id") or "")
+                if not item_id:
+                    continue
+                group = str((state_map.get(str(item.get("state"))) or {}).get("group") or "")
+                if group in DONE_GROUPS:
+                    continue
+                if bot_id not in [str(value) for value in item.get("assignees") or []]:
+                    continue
+                comments = get_comments(token, project_id, item_id)
+                humans = human_comments(comments, bot_id, actors)
+                thread = threads.get(item_id)
+                if thread and not thread.get("project_id"):
+                    # Threads created before multi-project support.
+                    thread["project_id"] = project_id
+                if thread:
+                    retry_after = thread.get("retry_after")
+                    try:
+                        if retry_after and float(retry_after) > time.time():
+                            continue
+                    except (TypeError, ValueError):
+                        pass
+                    if thread.get("needs_resume") and thread.get("pending_prompt"):
+                        if int(thread.get("auto_retries") or 0) >= MAX_AUTO_RETRIES:
+                            continue
+                        candidates.append(
+                            (
+                                "retry:" + str(thread.get("retry_after_iso") or ""),
+                                item,
+                                thread,
+                                [],
+                                project_id,
+                                project_identifier,
+                                group,
+                            )
+                        )
                         continue
-                except (TypeError, ValueError):
-                    pass
-                if thread.get("needs_resume") and thread.get("pending_prompt"):
-                    if int(thread.get("auto_retries") or 0) >= MAX_AUTO_RETRIES:
-                        continue
+                    last_raw = str(thread.get("last_human_at") or "")
+                    last_dt = parse_time(last_raw) if last_raw else None
+                    new_comments = [c for c in humans if last_dt is None or c["created_dt"] > last_dt]
+                    if new_comments:
+                        clear_pending(thread)
+                        candidates.append(
+                            (
+                                new_comments[0]["created_at"],
+                                item,
+                                thread,
+                                new_comments,
+                                project_id,
+                                project_identifier,
+                                group,
+                            )
+                        )
+                elif group in NEW_GROUPS:
                     candidates.append(
                         (
-                            "retry:" + str(thread.get("retry_after_iso") or ""),
+                            str(item.get("created_at") or ""),
                             item,
-                            thread,
-                            [],
+                            None,
+                            humans,
+                            project_id,
+                            project_identifier,
+                            group,
                         )
                     )
-                    continue
-                last_raw = str(thread.get("last_human_at") or "")
-                last_dt = parse_time(last_raw) if last_raw else None
-                new_comments = [c for c in humans if last_dt is None or c["created_dt"] > last_dt]
-                if new_comments:
-                    clear_pending(thread)
-                    candidates.append(
-                        (new_comments[0]["created_at"], item, thread, new_comments)
-                    )
-            elif group in NEW_GROUPS:
-                candidates.append((str(item.get("created_at") or ""), item, None, humans))
 
         if not candidates:
             return 0
 
         candidates.sort(key=lambda row: row[0])
-        _, item, thread, comments = candidates[0]
+        (
+            _,
+            item,
+            thread,
+            comments,
+            project_id,
+            project_identifier,
+            group,
+        ) = candidates[0]
         item_id = str(item.get("id"))
-        identifier = f"WORK-{item.get('sequence_id')}"
+        identifier = f"{project_identifier}-{item.get('sequence_id')}"
         title = f"{identifier} · {item.get('name')}"
         if thread is None:
             prompt = initial_prompt(
-                item,
-                comments,
-                str((state_map.get(str(item.get("state"))) or {}).get("group") or ""),
+                item, project_identifier, project_id, comments, group
             )
             session_id = session_create(title)
             status, data = session_message(session_id, prompt)
@@ -606,6 +668,7 @@ def main() -> int:
             last_human = comments[-1]["created_at"] if comments else datetime.now(timezone.utc).isoformat()
             threads[item_id] = {
                 "identifier": identifier,
+                "project_id": project_id,
                 "session_id": session_id,
                 "last_human_at": last_human,
                 "updated_at": datetime.now(timezone.utc).isoformat(),
@@ -619,11 +682,17 @@ def main() -> int:
 
         session_id = str(thread.get("session_id") or "")
         retrying = bool(thread.get("needs_resume") and thread.get("pending_prompt"))
-        prompt = str(thread["pending_prompt"]) if retrying else resume_prompt(item, comments)
+        prompt = (
+            str(thread["pending_prompt"])
+            if retrying
+            else resume_prompt(item, project_identifier, comments)
+        )
         status, data = session_message(session_id, prompt)
         if status != 200:
             log(f"resume failed for {identifier}: {status} {data}")
             return 1
+        thread["project_id"] = project_id
+        thread["identifier"] = identifier
         if comments:
             thread["last_human_at"] = comments[-1]["created_at"]
         thread["pending_prompt"] = prompt

@@ -127,7 +127,7 @@ token 一人一份，不共用、不进仓库。要让 agent 定时接单，可�
 
 ## Agent 会话桥接
 
-- `deploy/plane_threads.py`：一个 work item 对应一个 xiaohe session；人类评论转发到该 session，agent 的结果写回 Plane 评论。
+- `deploy/plane_threads.py`：一个 work item 对应一个 xiaohe session；轮询 workspace 下**所有项目**（不限于工作台），人类评论转发到该 session，agent 的结果写回 Plane 评论。
 - 映射 `~/.xiaohe/plane/threads.json`，锁 `threads.lock` / `agent.lock`，日志 `threads.log`；launchd 每 120 秒一轮，每次最多一个 turn。
 - 失败处理：15 分钟无新输出 → 取消会话并写超时评论；error、无回复、超时都按 1 小时退避重试，最多 3 次；人类新评论会清零重试并立即转发。
 - 完成判定看会话最后一条是否为 assistant 文本，不只看状态，避免把取消/崩溃当成完成。
