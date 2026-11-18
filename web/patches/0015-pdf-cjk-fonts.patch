@@ -1,0 +1,131 @@
+diff --git a/apps/web/components/editor/pdf/document.tsx b/apps/web/components/editor/pdf/document.tsx
+index bda85bb..8b8842e 100644
+--- a/apps/web/components/editor/pdf/document.tsx
++++ b/apps/web/components/editor/pdf/document.tsx
+@@ -17,13 +17,21 @@ import interSemibold from "@/app/assets/fonts/inter/semibold.ttf?url";
+ import interThin from "@/app/assets/fonts/inter/thin.ttf?url";
+ import interUltraBold from "@/app/assets/fonts/inter/ultrabold.ttf?url";
+ import interUltraLight from "@/app/assets/fonts/inter/ultralight.ttf?url";
++import notoSansSCBold from "@/app/assets/fonts/noto-sans-sc/bold.woff?url";
++import notoSansSCRegular from "@/app/assets/fonts/noto-sans-sc/regular.woff?url";
+ // plane imports
+ import { convertRemToPixel } from "@plane/utils";
+ 
++// Inter covers Latin; Noto Sans SC (a CJK subset shipped with the app) is the
++// fallback that supplies Chinese, Japanese and Korean glyphs.
++const PDF_FONT_STACK = ["Inter", "NotoSansSC"];
++const PDF_MONO_FONT_STACK = ["Courier", "NotoSansSC"];
++const PDF_MONO_BOLD_FONT_STACK = ["Courier-Bold", "NotoSansSC"];
++
+ const EDITOR_PDF_FONT_FAMILY_STYLES: Styles = {
+-  "*:not(.courier, .courier-bold)": { fontFamily: "Inter" },
+-  ".courier": { fontFamily: "Courier" },
+-  ".courier-bold": { fontFamily: "Courier-Bold" },
++  "*:not(.courier, .courier-bold)": { fontFamily: PDF_FONT_STACK },
++  ".courier": { fontFamily: PDF_MONO_FONT_STACK },
++  ".courier-bold": { fontFamily: PDF_MONO_BOLD_FONT_STACK },
+ };
+ 
+ const EDITOR_PDF_TYPOGRAPHY_STYLES: Styles = {
+@@ -213,6 +221,22 @@ Font.register({
+   ],
+ });
+ 
++Font.register({
++  family: "NotoSansSC",
++  fonts: [
++    { src: notoSansSCRegular, fontWeight: "normal" },
++    { src: notoSansSCBold, fontWeight: "bold" },
++  ],
++});
++
++// CJK text has no spaces, so the space-based line breaking never wraps it. Give
++// the layout engine a break opportunity between CJK characters; trailing CJK
++// punctuation stays with the preceding character and Latin words stay whole.
++const CJK_SYLLABLE_PATTERN =
++  /[\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF][\u3000-\u303F\uFF00-\uFFEF]*|[\u3000-\u303F\uFF00-\uFFEF]+|[^\u3000-\u303F\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF\uFF00-\uFFEF]+/g;
++
++Font.registerHyphenationCallback((word) => word.match(CJK_SYLLABLE_PATTERN) ?? [word]);
++
+ type Props = {
+   content: string;
+   pageFormat: PageProps["size"];
+diff --git a/apps/web/package.json b/apps/web/package.json
+index 311d11f..791e08d 100644
+--- a/apps/web/package.json
++++ b/apps/web/package.json
+@@ -10,6 +10,7 @@
+     "preview": "react-router build && serve -s build/client -l 3000",
+     "start": "serve -s build/client -l 3000",
+     "clean": "rm -rf .turbo && rm -rf .next && rm -rf .react-router && rm -rf node_modules && rm -rf dist && rm -rf build",
++    "postinstall": "node postinstall/patch-react-pdf-cjk.cjs",
+     "check:lint": "oxlint --max-warnings=11957 .",
+     "check:types": "react-router typegen && tsc --noEmit",
+     "check:format": "oxfmt --check .",
+diff --git a/apps/web/postinstall/patch-react-pdf-cjk.cjs b/apps/web/postinstall/patch-react-pdf-cjk.cjs
+new file mode 100644
+index 0000000..5fd3349
+--- /dev/null
++++ b/apps/web/postinstall/patch-react-pdf-cjk.cjs
+@@ -0,0 +1,61 @@
++/**
++ * Copyright (c) 2023-present Plane Software, Inc. and contributors
++ * SPDX-License-Identifier: AGPL-3.0-only
++ * See the LICENSE file for details.
++ *
++ * @react-pdf/textkit appends a visible hyphen whenever a line breaks at a
++ * hyphenation point. Pages split CJK runs per character so Chinese text wraps
++ * at all, and those breaks must not gain a hyphen. Latin hyphenation is left
++ * untouched. The library exposes no hook for this, hence the install-time
++ * patch; it fails loudly if the expected source shape changes on upgrade.
++ */
++
++const fs = require("node:fs");
++const path = require("node:path");
++
++const MARKER = "xiaohe-cjk-no-hyphen";
++const ORIGINAL = `            line = slice(start, end, attributedString);
++            line = insertGlyph(line.string.length, HYPHEN, line);`;
++const PATCHED = `            line = slice(start, end, attributedString);
++            // ${MARKER}: CJK line breaks are plain wraps, not hyphenation.
++            const code = line.string.charCodeAt(line.string.length - 1);
++            const isCJK =
++                (code >= 0x3000 && code <= 0x303f) ||
++                (code >= 0x3400 && code <= 0x4dbf) ||
++                (code >= 0x4e00 && code <= 0x9fff) ||
++                (code >= 0xf900 && code <= 0xfaff) ||
++                (code >= 0xff00 && code <= 0xffef);
++            if (!isCJK) line = insertGlyph(line.string.length, HYPHEN, line);`;
++
++function findTextkitSource() {
++  const candidates = [];
++  try {
++    candidates.push(require.resolve("@react-pdf/textkit"));
++  } catch {
++    // Transitive dependency is not linked in the workspace root with pnpm.
++  }
++  try {
++    const renderer = require.resolve("@react-pdf/renderer/package.json");
++    candidates.push(path.resolve(path.dirname(renderer), "../textkit/lib/textkit.js"));
++  } catch {
++    // Renderer missing means the install is incomplete; the caller reports it.
++  }
++  return candidates.find((file) => fs.existsSync(file));
++}
++
++const source = findTextkitSource();
++if (!source) {
++  console.error("patch-react-pdf-cjk: cannot locate @react-pdf/textkit");
++  process.exit(1);
++}
++
++const content = fs.readFileSync(source, "utf8");
++if (content.includes(MARKER)) {
++  process.exit(0);
++}
++if (!content.includes(ORIGINAL)) {
++  console.error(`patch-react-pdf-cjk: expected snippet not found in ${source}`);
++  process.exit(1);
++}
++fs.writeFileSync(source, content.replace(ORIGINAL, PATCHED));
++console.log(`patch-react-pdf-cjk: patched ${source}`);

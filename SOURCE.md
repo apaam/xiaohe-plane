@@ -13,8 +13,9 @@ This repository is the source location for the self-hosted Plane instance at
 
 - `auth/plane/`: xiaohe accounts SSO adapter, page-image inline patch and the
   backend image Dockerfile.
-- `web/patches/`: frontend cleanup patches (upstream promo, edition badge,
-  auth footer, quickstart guide).
+- `web/patches/`: frontend patches (cleanup of upstream promo, edition badge,
+  auth footer, quickstart guide; CJK fonts for PDF export).
+- `web/assets/fonts/`: Noto Sans SC subset bundled for CJK PDF export.
 - `deploy/`: Docker Compose override, nginx, backup and provisioning scripts.
 
 ## Reconstruct the source
