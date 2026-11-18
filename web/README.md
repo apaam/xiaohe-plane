@@ -17,6 +17,7 @@ Plane 上游前端原样构建，只在构建时打几个小补丁，不改业�
 | `0012-fix-ime-enter-comment.patch` | 评论框输入中文时按 Enter 只上屏候选词，不再误发送（新建与编辑评论框） |
 | `0013-workspace-bots.patch` | Workspace Settings 增加 Bots 页：管理员创建/轮换/停用成员 bot |
 | `0014-restrict-bot-assignee.patch` | 非归属人/非管理员的 bot 在成员下拉框中灰色显示并标注 Owner only |
+| `0016-align-member-role-text.patch` | Workspace / Project Settings → Members：只读角色文字与可编辑角色下拉框对齐（高度、左缩进一致） |
 
 ## 构建
 

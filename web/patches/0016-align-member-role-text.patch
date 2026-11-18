@@ -1,0 +1,34 @@
+diff --git a/apps/web/components/project/settings/member-columns.tsx b/apps/web/components/project/settings/member-columns.tsx
+index eab3a50..20c85af 100644
+--- a/apps/web/components/project/settings/member-columns.tsx
++++ b/apps/web/components/project/settings/member-columns.tsx
+@@ -197,8 +197,10 @@ export const AccountTypeColumn = observer(function AccountTypeColumn(props: Acco
+           }}
+         />
+       ) : (
+-        <div className="flex w-32">
+-          <span>{roleLabel}</span>
++        // Mirrors the ghost select's box (28px tall, 8px inset) so a read-only role
++        // lines up with the editable roles in the rows above and below it.
++        <div className="flex min-h-7 w-32 items-center px-2">
++          <span className="min-w-0 truncate">{roleLabel}</span>
+         </div>
+       )}
+     </>
+diff --git a/apps/web/components/workspace/settings/member-columns.tsx b/apps/web/components/workspace/settings/member-columns.tsx
+index dbf61e9..5300faf 100644
+--- a/apps/web/components/workspace/settings/member-columns.tsx
++++ b/apps/web/components/workspace/settings/member-columns.tsx
+@@ -131,8 +131,10 @@ export const AccountTypeColumn = observer(function AccountTypeColumn(props: Acco
+           <Badge variant="neutral" size="sm" label="Suspended" />
+         </div>
+       ) : isRoleNonEditable ? (
+-        <div className="flex w-32">
+-          <span>{ROLE[rowData.role]}</span>
++        // Mirrors the ghost select's box (28px tall, 8px inset) so a read-only role
++        // lines up with the editable roles in the rows above and below it.
++        <div className="flex min-h-7 w-32 items-center px-2">
++          <span className="min-w-0 truncate">{ROLE[rowData.role]}</span>
+         </div>
+       ) : (
+         <Controller
