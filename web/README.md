@@ -12,6 +12,8 @@ Plane 上游前端原样构建，只在构建时打几个小补丁，不改业�
 | `0007-sso-only-auth.patch` | 登录/注册/密码页统一跳 accounts SSO；退出同时清 accounts 会话 |
 | `0008-remove-help-button.patch` | 去掉顶栏帮助按钮（键盘快捷键/Source/版本菜单） |
 | `0009-fix-greeting-zh.patch` | 修正中英文问候语（晚上好 / Good evening，不再出现“早上 晚上”） |
+| `0010-inbox-notification-list-density.patch` | 收件箱通知列表：收紧条目上下留白，选中项改用可见的选中背景，补 hover 反馈 |
+| `0011-remove-sidebar-help-container.patch` | 侧栏底部 Community 徽标移除后遗留的容器与分隔线 |
 
 ## 构建
 

@@ -1,0 +1,16 @@
+diff --git a/apps/web/components/workspace-notifications/sidebar/notification-card/item.tsx b/apps/web/components/workspace-notifications/sidebar/notification-card/item.tsx
+index 60f254f..cc5e69f 100644
+--- a/apps/web/components/workspace-notifications/sidebar/notification-card/item.tsx
++++ b/apps/web/components/workspace-notifications/sidebar/notification-card/item.tsx
+@@ -73,9 +73,9 @@ export const NotificationItem = observer(function NotificationItem(props: TNotif
+   return (
+     <Row
+       className={cn(
+-        "group relative flex cursor-pointer items-center gap-2 border-b border-subtle py-4 transition-all",
++        "group relative flex cursor-pointer items-center gap-2 border-b border-subtle py-2.5 transition-all hover:bg-layer-transparent-hover",
+         {
+-          "bg-layer-1/30": currentSelectedNotificationId === notification?.id,
++          "bg-layer-transparent-selected": currentSelectedNotificationId === notification?.id,
+         }
+       )}
+       onClick={handleNotificationIssuePeekOverview}
