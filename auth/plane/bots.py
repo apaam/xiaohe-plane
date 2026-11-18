@@ -29,6 +29,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from plane.api.middleware.api_authentication import APIKeyAuthentication
+from plane.authentication.bot_guard import bot_owner_id, set_bot_owner
 from plane.authentication.session import BaseSessionAuthentication
 from plane.db.models import (
     APIToken,
@@ -77,6 +78,8 @@ def _bot_payload(bot: User, workspace, member: WorkspaceMember | None) -> dict:
         .values("project_id", "project__identifier", "project__name")
     )
     tokens = APIToken.objects.filter(user=bot, workspace=workspace)
+    owner_id = bot_owner_id(bot.id)
+    owner = User.objects.filter(id=owner_id).first() if owner_id else None
     last_used = max(
         (token.last_used for token in tokens if token.last_used), default=None
     )
@@ -84,6 +87,15 @@ def _bot_payload(bot: User, workspace, member: WorkspaceMember | None) -> dict:
         "id": str(bot.id),
         "email": bot.email,
         "display_name": bot.display_name,
+        "owner": (
+            {
+                "id": str(owner.id),
+                "display_name": owner.display_name,
+                "email": owner.email,
+            }
+            if owner
+            else None
+        ),
         "is_active": bool(member and member.is_active),
         "token_active": any(token.is_active for token in tokens),
         "last_used": last_used.isoformat() if last_used else None,
@@ -168,6 +180,14 @@ class BotsView(APIView):
                 {"error": f"{email} already exists"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        owner_id = str(request.data.get("owner_id") or request.user.id)
+        if not WorkspaceMember.objects.filter(
+            workspace=workspace, member_id=owner_id, is_active=True
+        ).exists():
+            return Response(
+                {"error": "owner must be an active workspace member"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         project_ids = [str(value) for value in request.data.get("project_ids") or []]
         projects = list(
             Project.objects.filter(
@@ -206,7 +226,7 @@ class BotsView(APIView):
             workspace=workspace,
             user_type=1,
             label=f"{name} bot token",
-            description="created from the workspace bots page",
+            description=f"created from the workspace bots page; owner={owner_id}",
         )
         logger.info("xiaohe bot created email=%s by=%s", email, request.user.email)
         member = WorkspaceMember.objects.filter(
@@ -242,18 +262,40 @@ class BotActionView(APIView):
         ).first()
         tokens = APIToken.objects.filter(user=bot, workspace=workspace)
         if action == "rotate":
+            owner_id = bot_owner_id(bot.id)
             tokens.update(is_active=False)
             token = APIToken.objects.create(
                 user=bot,
                 workspace=workspace,
                 user_type=1,
                 label=f"{bot.display_name} bot token",
-                description="rotated from the workspace bots page",
+                description=(
+                    f"rotated from the workspace bots page; owner={owner_id}"
+                    if owner_id
+                    else "rotated from the workspace bots page"
+                ),
             )
             logger.info(
                 "xiaohe bot rotated email=%s by=%s", bot.email, request.user.email
             )
             return Response({"token": token.token})
+        if action == "owner":
+            owner_id = str(request.data.get("owner_id") or "")
+            if not WorkspaceMember.objects.filter(
+                workspace=workspace, member_id=owner_id, is_active=True
+            ).exists():
+                return Response(
+                    {"error": "owner must be an active workspace member"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            set_bot_owner(bot, owner_id)
+            logger.info(
+                "xiaohe bot owner set email=%s owner=%s by=%s",
+                bot.email,
+                owner_id,
+                request.user.email,
+            )
+            return Response({"ok": True, "owner_id": owner_id})
         if action == "disable":
             tokens.update(is_active=False)
             if member:

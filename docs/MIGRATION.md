@@ -23,7 +23,7 @@
 
 ### 运行时
 
-- 自定义镜像 `xiaohe-plane-backend:v1.5.0-xh13`（SSO + 直接邮箱关联 + hairpin 修复 +
+- 自定义镜像 `xiaohe-plane-backend:v1.5.0-xh15`（SSO + 直接邮箱关联 + hairpin 修复 +
   Page 图片 inline 补丁 + Plane 订阅门槛/会话到期）。
 - 自定义前端 `xiaohe-plane-web:v1.5.0-xh10`：去掉顶栏 GitHub 加星、侧栏 Community
   徽标、登录页上游营销、首页快速入门引导；登录页加入 `Source (AGPL-3.0)`，Billing & Plans 替换为小荷订阅入口；登录/注册/密码页统一跳 accounts SSO，退出同时清 accounts 会话；顶栏帮助按钮已去掉；

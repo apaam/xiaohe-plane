@@ -5,12 +5,13 @@
 ## 文件
 
 - `xiaohe_sso.py`：`/auth/xiaohe/start/` 与 `/auth/xiaohe/callback/`。
-- `bots.py`：`/auth/xiaohe/bots/<slug>/`，workspace Admin 自助创建、轮换、停用 bot（`-bot@xiaohe.local` 账号 + 管理 token）。
+- `bots.py`：`/auth/xiaohe/bots/<slug>/`，workspace Admin 自助创建、轮换、停用 bot（`-bot@xiaohe.local` 账号 + 管理 token）；创建时记录归属人。
+- `bot_guard.py` + `patch_serializers.py`：在 issue 创建/更新时校验 bot 归属，只有归属人或 workspace Admin 能指派该 bot。
 - `urls_xiaohe.py`：两条路由。
 - `patch_urls.py`：构建时把路由挂进 Plane 的 `authentication/urls.py`，并加载 Page 图片补丁。
 - `asset_inline_patch.py`：让 Page 里的图片以 inline 方式返回，避免显示 “Error loading image”。
 - `Dockerfile`：基于 `makeplane/plane-backend:v1.5.0`。
-- `build.sh`：构建 `xiaohe-plane-backend:v1.5.0-xh13`。
+- `build.sh`：构建 `xiaohe-plane-backend:v1.5.0-xh15`。
 
 ## 环境变量
 
@@ -33,7 +34,7 @@ cd auth/plane
 ```bash
 ssh ts-xiaohe 'mkdir -p ~/xiaohe-plane-auth'
 scp -q auth/plane/* ts-xiaohe:~/xiaohe-plane-auth/
-ssh ts-xiaohe 'cd ~/xiaohe-plane-auth && sudo docker build -t xiaohe-plane-backend:v1.5.0-xh13 .'
+ssh ts-xiaohe 'cd ~/xiaohe-plane-auth && sudo docker build -t xiaohe-plane-backend:v1.5.0-xh15 .'
 ```
 
 ## 部署
@@ -42,7 +43,7 @@ ssh ts-xiaohe 'cd ~/xiaohe-plane-auth && sudo docker build -t xiaohe-plane-backe
 
 ```yaml
   api:
-    image: xiaohe-plane-backend:v1.5.0-xh13
+    image: xiaohe-plane-backend:v1.5.0-xh15
     environment:
       XIAOHE_ACCOUNTS_URL: https://accounts.xiaohe.team
       XIAOHE_OAUTH_CLIENT_ID: plane
