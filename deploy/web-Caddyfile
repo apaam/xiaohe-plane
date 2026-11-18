@@ -26,6 +26,15 @@
 		X-XSS-Protection "1; mode=block"
 	}
 
+	# Compress the large PDF-export CJK fonts on the wire. The browser inflates
+	# them natively, so @react-pdf/fontkit still receives a plain TTF (JS-side
+	# inflate of WOFF was the reason exports blocked for ~90s).
+	encode zstd gzip {
+		match {
+			header Content-Type font/*
+		}
+	}
+
 	# SPA fallback
 	try_files {path} /index.html
 	file_server
