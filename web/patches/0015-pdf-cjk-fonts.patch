@@ -64,10 +64,10 @@ index 311d11f..791e08d 100644
      "check:format": "oxfmt --check .",
 diff --git a/apps/web/postinstall/patch-react-pdf-cjk.cjs b/apps/web/postinstall/patch-react-pdf-cjk.cjs
 new file mode 100644
-index 0000000..5fd3349
+index 0000000..9899b51
 --- /dev/null
 +++ b/apps/web/postinstall/patch-react-pdf-cjk.cjs
-@@ -0,0 +1,61 @@
+@@ -0,0 +1,86 @@
 +/**
 + * Copyright (c) 2023-present Plane Software, Inc. and contributors
 + * SPDX-License-Identifier: AGPL-3.0-only
@@ -97,35 +97,60 @@ index 0000000..5fd3349
 +                (code >= 0xff00 && code <= 0xffef);
 +            if (!isCJK) line = insertGlyph(line.string.length, HYPHEN, line);`;
 +
-+function findTextkitSource() {
++// pnpm installs transitive dependencies into the virtual store; npm hoists them
++// or nests them under the dependent package. Look in all of those places.
++function textkitSources() {
++  const roots = new Set();
++  for (const start of [process.cwd(), __dirname]) {
++    let dir = path.resolve(start);
++    while (true) {
++      roots.add(dir);
++      const parent = path.dirname(dir);
++      if (parent === dir) break;
++      dir = parent;
++    }
++  }
 +  const candidates = [];
-+  try {
-+    candidates.push(require.resolve("@react-pdf/textkit"));
-+  } catch {
-+    // Transitive dependency is not linked in the workspace root with pnpm.
++  for (const root of roots) {
++    for (const nodeModules of [path.join(root, "node_modules"), path.join(root, "apps", "web", "node_modules")]) {
++      candidates.push(path.join(nodeModules, "@react-pdf", "textkit", "lib", "textkit.js"));
++      candidates.push(
++        path.join(nodeModules, "@react-pdf", "renderer", "node_modules", "@react-pdf", "textkit", "lib", "textkit.js"),
++      );
++      let entries = [];
++      try {
++        entries = fs.readdirSync(path.join(nodeModules, ".pnpm"));
++      } catch {
++        // Not a pnpm store at this level.
++      }
++      for (const entry of entries) {
++        if (entry.startsWith("@react-pdf+textkit@")) {
++          candidates.push(
++            path.join(nodeModules, ".pnpm", entry, "node_modules", "@react-pdf", "textkit", "lib", "textkit.js"),
++          );
++        }
++      }
++    }
 +  }
-+  try {
-+    const renderer = require.resolve("@react-pdf/renderer/package.json");
-+    candidates.push(path.resolve(path.dirname(renderer), "../textkit/lib/textkit.js"));
-+  } catch {
-+    // Renderer missing means the install is incomplete; the caller reports it.
-+  }
-+  return candidates.find((file) => fs.existsSync(file));
++  return candidates;
 +}
 +
-+const source = findTextkitSource();
-+if (!source) {
++const sources = textkitSources()
++  .filter((file) => fs.existsSync(file))
++  .filter((file, index, files) => files.indexOf(file) === index);
++
++if (sources.length === 0) {
 +  console.error("patch-react-pdf-cjk: cannot locate @react-pdf/textkit");
 +  process.exit(1);
 +}
 +
-+const content = fs.readFileSync(source, "utf8");
-+if (content.includes(MARKER)) {
-+  process.exit(0);
++for (const source of sources) {
++  const content = fs.readFileSync(source, "utf8");
++  if (content.includes(MARKER)) continue;
++  if (!content.includes(ORIGINAL)) {
++    console.error(`patch-react-pdf-cjk: expected snippet not found in ${source}`);
++    process.exit(1);
++  }
++  fs.writeFileSync(source, content.replace(ORIGINAL, PATCHED));
++  console.log(`patch-react-pdf-cjk: patched ${source}`);
 +}
-+if (!content.includes(ORIGINAL)) {
-+  console.error(`patch-react-pdf-cjk: expected snippet not found in ${source}`);
-+  process.exit(1);
-+}
-+fs.writeFileSync(source, content.replace(ORIGINAL, PATCHED));
-+console.log(`patch-react-pdf-cjk: patched ${source}`);
