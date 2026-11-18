@@ -262,15 +262,36 @@ def mark_failure(
     log(f"{identifier} failure #{attempts} ({reason}); retry after 1h")
 
 
+def session_messages(session_id: str) -> list:
+    status, data = session_api("GET", f"/v1/sessions/{session_id}/messages")
+    if status != 200:
+        return []
+    rows = data.get("messages", data) if isinstance(data, dict) else data
+    return rows if isinstance(rows, list) else []
+
+
 def pending_completed(thread: dict, status: str, updated_at: float) -> bool:
-    """True when the last forwarded turn finished without an error."""
+    """True when the last forwarded turn ended with an assistant reply.
+
+    Status alone is not enough: a cancelled or crashed turn also returns to
+    ``ready``. Look at the session transcript's last message instead.
+    """
     if status != "ready":
         return False
     try:
         sent_at = float(thread.get("pending_sent_at") or 0)
     except (TypeError, ValueError):
         return False
-    return bool(sent_at) and updated_at > sent_at + 2
+    if not sent_at or updated_at <= sent_at + 2:
+        return False
+    session_id = str(thread.get("session_id") or "")
+    for row in reversed(session_messages(session_id)):
+        role = str(row.get("role") or "")
+        if role == "assistant":
+            return bool(str(row.get("content") or "").strip())
+        if role in ("user", "err"):
+            return False
+    return False
 
 
 def clear_pending(thread: dict) -> None:
@@ -466,6 +487,18 @@ def session_running(threads: dict, token: str) -> bool:
             sent_at = float(thread.get("pending_sent_at") or 0)
         except (TypeError, ValueError):
             sent_at = 0.0
+        if sent_at and status == "ready" and updated_at > sent_at + 2:
+            # The turn ended but produced no assistant reply: a cancel, a
+            # crash, or the command produced nothing. Retry with backoff.
+            mark_failure(
+                threads,
+                key,
+                thread,
+                token,
+                "no-reply",
+                "agent 本轮已结束，但没有产出回复。",
+            )
+            continue
         if sent_at and time.time() - sent_at > STALL_SECONDS:
             mark_failure(
                 threads,
