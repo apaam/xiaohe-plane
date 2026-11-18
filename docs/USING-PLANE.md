@@ -52,11 +52,8 @@ Plane 没有子项目；按产品线建两个项目，项目内用 Module 分代
 
 | identifier | 任务 | 状态 |
 |---|---|---|
-| WORK-1 | 把每天的待办记到 Plane | Backlog |
-| WORK-2 | 把 agent-tasks.md 的例行任务迁到 Plane | Backlog |
-| WORK-3 | 资料同步：选定 MinIO 或 dufs | Backlog |
-| WORK-4 | 为真实科研项目建一个 project | Backlog |
-| WORK-5 | 确认 agent 能读写 Plane 工作项 | Done（含 agent 评论） |
+工作项状态以 Plane 为准。2026-11-18 时：WORK-1～5 Done；WORK-6/8/9/10 进行中（已有 agent 回写）；
+WORK-7 进行中（等仓库/机器决策）；WORK-11 Done（含完整结果评论）。
 
 ## 视图
 
@@ -109,13 +106,34 @@ sudo docker exec -e PLANE_BOT_EMAIL=zhangsan-bot@xiaohe.local \
 - 一个合作组一个 workspace；个人工作台不要放合作方内容。
 - 不给合作者 mini 的 shell/tailnet 权限；只给 Plane 账号。
 
+### 用你自己的 Claude Code / Codex / Cursor
 
-## Agent 会话桥接（实验）
+技能 `plane-agent` 与 harness 无关，任何能跑 shell 或连 MCP 的 agent 都能用：
 
-- `deploy/plane_threads.py`：一个 work item 对应一个 xiaohe session；人类评论转发到该 session，agent 的回复写回 Plane 评论。
-- 映射在 `~/.xiaohe/plane/threads.json`；同一时间只启动一个 agent turn。
-- launchd 模板：`deploy/com.xiaohe.plane-threads.plist.example`，默认 120 秒轮询。
-- 当前在 mini 上**已启用**（launchd `com.xiaohe.plane-threads`，120 秒）：15 分钟无输出会自动取消并写超时评论，1 小时内不重复重试。首次复杂任务曾卡住，已加 REST-only 与不扫盘约束；待更多任务验证。
+1. 拿到自己的 bot token（见上一节）。
+2. 保存：`~/.xiaohe/plane/agent-token`（600），或环境变量 `PLANE_API_KEY`；
+   同时设 `PLANE_BASE_URL=https://plane.xiaohe.team`、`PLANE_WORKSPACE_SLUG=research`。
+3. 入口二选一：
+   - **REST**：`curl -H "X-API-Key: $TOKEN" https://plane.xiaohe.team/api/v1/workspaces/research/projects/`；
+     能力面见技能的 `references/api.md`。
+   - **MCP**：`uvx plane-mcp-server stdio`；Claude Code 用
+     `claude mcp add plane -e PLANE_BASE_URL=... -e PLANE_WORKSPACE_SLUG=research -e PLANE_API_KEY=... -- uvx plane-mcp-server stdio`；
+     Codex 写 `~/.codex/config.toml` 的 `[mcp_servers.plane]`（command / args / env）。
+4. 装技能：Claude Code `~/.claude/skills/plane-agent/`；Codex `~/.agents/skills/plane-agent/`；
+   Cursor 在仓库 `AGENTS.md` 里指向该技能。
+
+token 一人一份，不共用、不进仓库。要让 agent 定时接单，可用 cron/launchd 轮询“指派给自己且未完成”的工作项，
+交给 `claude -p` / `codex exec` 处理并回写评论；单并发与幂等（记录最后处理到的评论 ID）需自行保证。
+
+## Agent 会话桥接
+
+- `deploy/plane_threads.py`：一个 work item 对应一个 xiaohe session；人类评论转发到该 session，agent 的结果写回 Plane 评论。
+- 映射 `~/.xiaohe/plane/threads.json`，锁 `threads.lock` / `agent.lock`，日志 `threads.log`；launchd 每 120 秒一轮，每次最多一个 turn。
+- 失败处理：15 分钟无新输出 → 取消会话并写超时评论；error、无回复、超时都按 1 小时退避重试，最多 3 次；人类新评论会清零重试并立即转发。
+- 完成判定看会话最后一条是否为 assistant 文本，不只看状态，避免把取消/崩溃当成完成。
+- 2026-11-18 在 mini 上验证：WORK-11 完成并回写完整结果评论；WORK-7 回写核对结果并停在等决策。
+  旧会话若已卡住（transcript 停在半截 tool_use），新建 session 并把 `threads.json` 的 `session_id` 指过去。
+- 自带 Claude Code / Codex 不走这个桥（没有 xiaohe Session API），按上一节的手动或自建轮询方式接单。
 
 ## 备份
 
