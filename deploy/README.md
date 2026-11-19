@@ -31,13 +31,13 @@
 
 ## 0.1 镜像构建（ts-linux-ws 构建，Gitea 仓库分发）
 
-backend 与 web 两个自定义镜像不在 VPS 上构建：VPS 固定 5 Mbps 出网，构建期间的镜像层流量会打满带宽并触发告警。构建在 ts-linux-ws 上完成，推送 Gitea 容器仓库，VPS 只拉取（入网不计费）。
+backend 与 web 两个自定义镜像不在 VPS 上构建：VPS 只有 4 核 / 7.6 GB，与线上十几个容器共用，构建（尤其冷构建）会抢占 CPU、内存与临时磁盘。镜像推送和拉取对 VPS 都是入向流量，不受 5 Mbps 出网上限约束（实测入向可达约 19 Mbps）。构建在 ts-linux-ws 上完成，推送 Gitea 容器仓库，VPS 只拉取成品镜像（web 压缩传输约 94 MB）。
 
 构建机一次性准备：
 
 - docker 已登录 `gitea.xiaohe.team`，凭据写在 `~/.docker/config.json`（600）。
 - `/etc/docker/daemon.json` 配置 `registry-mirrors: ["https://docker.1ms.run"]`（直连 Docker Hub 的 CloudFront 会 reset）与 `insecure-registries: ["100.64.0.4:3000"]`。
-- 源码在 `~/plane-build/xiaohe-plane`，上游前端源码在 `~/plane-web-src`。
+- 源码在 `~/plane-build`，上游前端源码在 `~/plane-web-src`。
 
 构建与推送：
 

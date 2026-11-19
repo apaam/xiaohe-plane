@@ -25,10 +25,10 @@
 
 ## 构建
 
-在 ts-linux-ws 上构建并推送到 Gitea 容器仓库，VPS 只拉取（VPS 出网固定 5 Mbps，不在上面构建）：
+在 ts-linux-ws 上构建并推送到 Gitea 容器仓库，VPS 只拉取（避免构建抢占 VPS 的 CPU、内存与磁盘；镜像拉取是入向流量，不受 5 Mbps 出网上限约束）：
 
 ```bash
-# on ts-linux-ws, repo at ~/plane-build/xiaohe-plane
+# on ts-linux-ws, repo at ~/plane-build
 ./scripts/build-and-push.sh v1.5.0-xh19                    # backend + web
 COMPONENTS=backend ./scripts/build-and-push.sh v1.5.0-xh19 # 只做 backend
 ```

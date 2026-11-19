@@ -78,7 +78,7 @@ uvx plane-mcp-server stdio
 
 ## 6. 备份与升级
 
-- 镜像构建在 ts-linux-ws（`scripts/build-and-push.sh <tag>`），推送到 Gitea 容器仓库，VPS 只拉取；不在 VPS 上 `docker build`，避免打满 5 Mbps 出网。
+- 镜像构建在 ts-linux-ws（`scripts/build-and-push.sh <tag>`），推送到 Gitea 容器仓库，VPS 只拉取；不在 VPS 上 `docker build`——VPS 只有 4 核 / 7.6 GB 且与线上容器共用，构建会抢占 CPU/内存，冷构建还会占用大量临时磁盘；镜像拉取是入向流量，不走 5 Mbps 出网上限。
 
 - 恢复数据库或手工建用户后运行 `deploy/ensure_profiles.py`，补齐 `Profile` 并标记已有 workspace 的用户 onboarded。
 

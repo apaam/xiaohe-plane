@@ -21,11 +21,11 @@ Plane 上游前端原样构建，只在构建时打几个小补丁，不改业�
 
 ## 构建
 
-在 ts-linux-ws 上构建并推送到 Gitea 容器仓库，VPS 只拉取（VPS 出网固定 5 Mbps，不在上面构建）。
+在 ts-linux-ws 上构建并推送到 Gitea 容器仓库，VPS 只拉取（避免构建抢占 VPS 的 CPU、内存与磁盘；镜像拉取是入向流量，不受 5 Mbps 出网上限约束）。
 上游源码克隆到构建机的 `~/plane-web-src`，不 vendor 进仓：
 
 ```bash
-# on ts-linux-ws, repo at ~/plane-build/xiaohe-plane
+# on ts-linux-ws, repo at ~/plane-build
 COMPONENTS=web ./scripts/build-and-push.sh v1.5.0-xh19
 # 产物：gitea.xiaohe.team/lzhshou/xiaohe-plane-web:v1.5.0-xh20
 ```
