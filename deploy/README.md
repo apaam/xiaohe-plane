@@ -18,7 +18,7 @@
 | agent 身份 | `agent-bot@xiaohe.local`；token `~/.xiaohe/plane/agent-token`（600） |
 | agent MCP | `~/.xiaohe/plane/plane-mcp.sh`；笔记本已注册为 `plane` |
 | 公网入口 | `plane.xiaohe.team` 已代理 Plane；SSO 入口 `/auth/xiaohe/start/` |
-| api 镜像 | `gitea.xiaohe.team/lzhshou/xiaohe-plane-backend:v1.5.0-xh22`（`auth/plane` + 订阅门槛） |
+| api 镜像 | `gitea.xiaohe.team/lzhshou/xiaohe-plane-backend:v1.5.0-xh23`（`auth/plane` + 订阅门槛 + 请求防护） |
 | 容器访问 accounts | `extra_hosts: accounts.xiaohe.team:host-gateway`，避免公网 hairpin 超时 |
 | 备份 | 每日 03:17 cron，`~/plane-backups`（Postgres dump + uploads tar，保留 14 天） |
 | 实际内存 | Plane 容器合计约 1.5GiB；host 可用约 4.6GiB |
@@ -44,8 +44,8 @@ backend 与 web 两个自定义镜像不在 VPS 上构建：VPS 只有 4 核 / 7
 ```bash
 # on ts-linux-ws
 cd ~/plane-build/xiaohe-plane
-./scripts/build-and-push.sh v1.5.0-xh22              # backend + web
-COMPONENTS=web ./scripts/build-and-push.sh v1.5.0-xh22
+./scripts/build-and-push.sh v1.5.0-xh23              # backend + web
+COMPONENTS=web ./scripts/build-and-push.sh v1.5.0-xh23
 ```
 
 推送走 tailnet 的 `100.64.0.4:3000`（绕开 `gitea.xiaohe.team` 的 nginx 限流），镜像仓库路径与公网名一致，VPS 用公网名拉取即可。
@@ -54,8 +54,8 @@ VPS 拉取（登录一次，凭据在 `/root/.docker/config.json`，600）：
 
 ```bash
 sudo docker login gitea.xiaohe.team -u git --password-stdin   # 密码从标准输入读，不落 shell 历史
-sudo docker pull gitea.xiaohe.team/lzhshou/xiaohe-plane-backend:v1.5.0-xh22
-sudo docker pull gitea.xiaohe.team/lzhshou/xiaohe-plane-web:v1.5.0-xh22
+sudo docker pull gitea.xiaohe.team/lzhshou/xiaohe-plane-backend:v1.5.0-xh23
+sudo docker pull gitea.xiaohe.team/lzhshou/xiaohe-plane-web:v1.5.0-xh23
 ```
 
 ## 1. 下载 release 资产
@@ -169,6 +169,27 @@ sudo docker compose --env-file plane.env -f docker-compose.yaml -f docker-compos
 # 删除数据（不可逆）
 sudo docker compose --env-file plane.env -f docker-compose.yaml -f docker-compose.override.yml down -v
 ```
+
+### 请求防护（v1.5.0-xh23 起）
+
+签名用户可以无上限地打 API，一个渲染循环就能压垮后端，所以请求路径有三层上限：
+
+- **限流**：Redis 令牌桶，按用户计。人类会话持续 5 req/s、突发 40；bot / API-key 持续 2 req/s、突发 20（plane-bridge 轮询节奏）。超限返回 429 与 `Retry-After`；同一用户超过 300 req/min 写一条 WARNING（`name=plane.authentication`，含 user id、路径、计数）。
+- **读缓存 + ETag**：`projects`、`members`、`bots`、`pages` 列表按用户缓存 3 秒并返回 `W/` ETag，重复请求多为 304；同一用户的任何写请求都会让缓存失效。
+- **版本兜底**：API 响应带 `X-Build-Id`，web 产物带 `/version.json`（含 `build_id`），前端据此提示新版本，不强制刷新。
+
+运行时开关，均在 `api` 容器的 environment 里，改后 `up -d api` 即生效，无需重建镜像：
+
+| 变量 | 默认 | 作用 |
+|---|---|---|
+| `XIAOHE_THROTTLE_ENABLED` | 1 | 0 关闭限流 |
+| `XIAOHE_READ_CACHE_ENABLED` | 1 | 0 关闭读缓存与 ETag |
+| `XIAOHE_USER_RATE` / `XIAOHE_USER_BURST` | 5 / 40 | 人类会话速率与突发 |
+| `XIAOHE_BOT_RATE` / `XIAOHE_BOT_BURST` | 2 / 20 | bot 速率与突发 |
+| `XIAOHE_RATE_WARN_PER_MIN` | 300 | 告警阈值 |
+| `XIAOHE_READ_CACHE_TTL` | 3 | 读缓存秒数 |
+
+误伤时先关对应层（无需重建镜像），确认后再决定是否调参。回滚镜像仍按上面的 tag 回退。
 
 ### 部署后清理
 
