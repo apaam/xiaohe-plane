@@ -71,6 +71,18 @@ def _digest_bytes(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
 
 
+def _normalize_etag(value: str | None) -> str:
+    """Compare ETags regardless of the weak ``W/`` prefix.
+
+    GZipMiddleware weakens any strong ETag it compresses, so the value the
+    browser replays in ``If-None-Match`` never matches the strong tag we
+    stored unless both are normalized first.
+    """
+    if not value:
+        return ""
+    return value.strip().removeprefix("W/")
+
+
 class XiaoheGuardMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
@@ -154,7 +166,7 @@ class XiaoheGuardMiddleware:
         if not payload:
             return None
         etag, body, content_type = payload
-        if request.headers.get("If-None-Match") == etag:
+        if _normalize_etag(request.headers.get("If-None-Match")) == _normalize_etag(etag):
             response = HttpResponseNotModified()
         else:
             response = HttpResponse(body, content_type=content_type)
@@ -164,7 +176,9 @@ class XiaoheGuardMiddleware:
 
     def _store(self, cache_key: str, response) -> None:
         body = response.content
-        etag = '"' + _digest_bytes(body)[:32] + '"'
+        # Weak by design: the same body may be served compressed or plain, and
+        # GZipMiddleware would weaken a strong tag anyway.
+        etag = 'W/"' + _digest_bytes(body)[:32] + '"'
         content_type = response.get("Content-Type", "application/json")
         ttl = _ttl()
         if ttl > 0:
