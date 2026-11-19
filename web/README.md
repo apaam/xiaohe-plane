@@ -19,6 +19,7 @@ Plane 上游前端原样构建，只在构建时打几个小补丁，不改业�
 | `0014-restrict-bot-assignee.patch` | 非归属人/非管理员的 bot 在成员下拉框中灰色显示并标注 Owner only |
 | `0016-align-member-role-text.patch` | Workspace / Project Settings → Members：只读角色文字与可编辑角色下拉框对齐（高度、左缩进一致） |
 | `0017-version-and-visibility.patch` | 后台标签页不发请求（`useDocumentVisible`）、构建版本提示条（`/version.json` 对比）与对应回归测试 |
+| `0018-bots-card-alignment.patch` | Workspace Settings → Bots：名称与状态单独一行；邮箱、归属（含改归属控件）、项目、最近使用各占一行左对齐，窄屏不再挤在一行 |
 
 ## 构建
 
