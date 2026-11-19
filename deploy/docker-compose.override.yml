@@ -1,6 +1,6 @@
 services:
   web:
-    image: gitea.xiaohe.team/lzhshou/xiaohe-plane-web:v1.5.0-xh21
+    image: gitea.xiaohe.team/lzhshou/xiaohe-plane-web:v1.5.0-xh22
     mem_limit: 384m
     restart: unless-stopped
     volumes:
@@ -15,7 +15,7 @@ services:
     mem_limit: 192m
     restart: unless-stopped
   api:
-    image: gitea.xiaohe.team/lzhshou/xiaohe-plane-backend:v1.5.0-xh21
+    image: gitea.xiaohe.team/lzhshou/xiaohe-plane-backend:v1.5.0-xh22
     mem_limit: 1g
     restart: unless-stopped
     # 上游镜像把 --max-requests 写死在入口脚本里，且 gunicorn 命令行参数优先级高于
