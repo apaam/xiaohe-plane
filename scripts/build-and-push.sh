@@ -19,6 +19,11 @@ IMAGE_PREFIX="${IMAGE_PREFIX:-lzhshou}"
 COMPONENTS="${COMPONENTS:-backend web}"
 DOCKER="${DOCKER:-docker}"
 
+# The web bundle, /version.json and the api's X-Build-Id header all carry this
+# value, so an operator can tell from one curl which build a client is talking
+# to. The deploy compose file pins the same value for the api container.
+export XIAOHE_BUILD_ID="${XIAOHE_BUILD_ID:-$TAG}"
+
 push_one() {   # $1 = component, $2 = tag
   local image="$REGISTRY/$IMAGE_PREFIX/xiaohe-plane-$1:$2"
   case "$1" in

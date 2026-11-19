@@ -1,6 +1,6 @@
 services:
   web:
-    image: gitea.xiaohe.team/lzhshou/xiaohe-plane-web:v1.5.0-xh22
+    image: gitea.xiaohe.team/lzhshou/xiaohe-plane-web:v1.5.0-xh23
     mem_limit: 384m
     restart: unless-stopped
     volumes:
@@ -15,7 +15,7 @@ services:
     mem_limit: 192m
     restart: unless-stopped
   api:
-    image: gitea.xiaohe.team/lzhshou/xiaohe-plane-backend:v1.5.0-xh22
+    image: gitea.xiaohe.team/lzhshou/xiaohe-plane-backend:v1.5.0-xh23
     mem_limit: 1g
     restart: unless-stopped
     # 上游镜像把 --max-requests 写死在入口脚本里，且 gunicorn 命令行参数优先级高于
@@ -32,6 +32,17 @@ services:
       GUNICORN_WORKERS: ${GUNICORN_WORKERS:-4}
       GUNICORN_MAX_REQUESTS: ${GUNICORN_MAX_REQUESTS:-5000}
       GUNICORN_MAX_REQUESTS_JITTER: ${GUNICORN_MAX_REQUESTS_JITTER:-1000}
+      # Request guard: per-user token buckets (Redis) and a short read cache.
+      # Every knob is a runtime env var so a limit can be relaxed without a
+      # rebuild; set XIAOHE_THROTTLE_ENABLED=0 / XIAOHE_READ_CACHE_ENABLED=0 to
+      # switch a layer off entirely.
+      XIAOHE_BUILD_ID: ${XIAOHE_BUILD_ID:-v1.5.0-xh23}
+      XIAOHE_USER_RATE: ${XIAOHE_USER_RATE:-5}
+      XIAOHE_USER_BURST: ${XIAOHE_USER_BURST:-40}
+      XIAOHE_BOT_RATE: ${XIAOHE_BOT_RATE:-2}
+      XIAOHE_BOT_BURST: ${XIAOHE_BOT_BURST:-20}
+      XIAOHE_RATE_WARN_PER_MIN: ${XIAOHE_RATE_WARN_PER_MIN:-300}
+      XIAOHE_READ_CACHE_TTL: ${XIAOHE_READ_CACHE_TTL:-3}
   worker:
     mem_limit: 384m
     restart: unless-stopped

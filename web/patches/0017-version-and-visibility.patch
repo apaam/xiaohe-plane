@@ -1,0 +1,231 @@
+diff --git a/apps/web/app/root.tsx b/apps/web/app/root.tsx
+index 8034624..37629ed 100644
+--- a/apps/web/app/root.tsx
++++ b/apps/web/app/root.tsx
+@@ -22,6 +22,7 @@ import globalStyles from "@/styles/globals.css?url";
+ import type { Route } from "./+types/root";
+ // components
+ import { LogoSpinner } from "@/components/common/logo-spinner";
++import { VersionWatcher } from "@/components/xiaohe/version-watcher";
+ // lib
+ import { isStaleAssetError, recoverFromStaleAsset } from "@/lib/stale-asset-error";
+ // local
+@@ -75,6 +76,7 @@ export function Layout({ children }: { children: ReactNode }) {
+         <div id="editor-portal" />
+         <ThemeProvider themes={["light", "dark", "light-contrast", "dark-contrast", "custom"]} defaultTheme="system">
+           {children}
++          <VersionWatcher />
+         </ThemeProvider>
+         <Scripts />
+       </body>
+diff --git a/apps/web/components/xiaohe/version-watcher.tsx b/apps/web/components/xiaohe/version-watcher.tsx
+new file mode 100644
+index 0000000..22f3961
+--- /dev/null
++++ b/apps/web/components/xiaohe/version-watcher.tsx
+@@ -0,0 +1,77 @@
++/**
++ * Copyright (c) 2023-present Plane Software, Inc. and contributors
++ * SPDX-License-Identifier: AGPL-3.0-only
++ * See the LICENSE file for details.
++ */
++
++import { useEffect, useState } from "react";
++import { Button } from "@makeplane/propel/components/button";
++
++import { XIAOHE_BUILD_ID } from "@/xiaohe-build";
++
++/**
++ * Compares the build this bundle was compiled from against the build the
++ * server is serving now.
++ *
++ * A tab that stays open across a deploy keeps running the old code — including
++ * any bug that old code has. This offers a reload instead of forcing one, so a
++ * half-written work item is never thrown away.
++ */
++export function VersionWatcher() {
++  const [stale, setStale] = useState(false);
++
++  useEffect(() => {
++    if (typeof window === "undefined") return;
++
++    let alive = true;
++    const check = async () => {
++      try {
++        const response = await fetch("/version.json", { cache: "no-store" });
++        if (!response.ok) return;
++        const data = (await response.json()) as { build_id?: string };
++        if (alive && data.build_id && XIAOHE_BUILD_ID && data.build_id !== XIAOHE_BUILD_ID) {
++          setStale(true);
++        }
++      } catch {
++        // Offline, or a proxy blocking the file: keep running the current build.
++      }
++    };
++
++    check();
++    const timer = window.setInterval(check, 60_000);
++    const onVisibility = () => {
++      if (!document.hidden) check();
++    };
++    document.addEventListener("visibilitychange", onVisibility);
++    return () => {
++      alive = false;
++      window.clearInterval(timer);
++      document.removeEventListener("visibilitychange", onVisibility);
++    };
++  }, []);
++
++  if (!stale) return null;
++
++  return (
++    <div className="fixed inset-x-0 bottom-6 z-[100] flex justify-center px-4">
++      <div className="flex items-center gap-3 rounded-lg border border-subtle bg-surface-1 px-4 py-2 text-body-sm-regular text-primary shadow-lg">
++        <span>有新版本，点击刷新</span>
++        <Button
++          variant="primary"
++          size="md"
++          stretch="auto"
++          label="刷新"
++          onClick={() => window.location.reload()}
++        />
++        <button
++          type="button"
++          aria-label="关闭"
++          className="text-tertiary hover:text-primary"
++          onClick={() => setStale(false)}
++        >
++          ✕
++        </button>
++      </div>
++    </div>
++  );
++}
+diff --git a/packages/blocks/src/__tests__/use-document-visible.test.tsx b/packages/blocks/src/__tests__/use-document-visible.test.tsx
+new file mode 100644
+index 0000000..d6442a9
+--- /dev/null
++++ b/packages/blocks/src/__tests__/use-document-visible.test.tsx
+@@ -0,0 +1,73 @@
++/**
++ * Copyright (c) 2023-present Plane Software, Inc. and contributors
++ * SPDX-License-Identifier: AGPL-3.0-only
++ * See the LICENSE file for details.
++ */
++
++import { act, render } from "@testing-library/react";
++import { useEffect } from "react";
++import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
++
++import { useDocumentVisible } from "../utils/use-document-visible";
++
++let visibility: DocumentVisibilityState = "visible";
++
++function setVisibility(next: DocumentVisibilityState) {
++  visibility = next;
++  act(() => {
++    document.dispatchEvent(new Event("visibilitychange"));
++  });
++}
++
++/** The pattern every data-loading settings page must follow: load once while visible. */
++function Harness({ load, tick }: { load: () => void; tick: number }) {
++  const visible = useDocumentVisible();
++  useEffect(() => {
++    if (!visible) return;
++    load();
++  }, [visible, load]);
++  return <span>{tick}</span>;
++}
++
++describe("useDocumentVisible", () => {
++  beforeEach(() => {
++    visibility = "visible";
++    Object.defineProperty(document, "visibilityState", {
++      configurable: true,
++      get: () => visibility,
++    });
++  });
++
++  afterEach(() => {
++    delete (document as { visibilityState?: DocumentVisibilityState }).visibilityState;
++  });
++
++  it("does not refetch when the page re-renders", () => {
++    const load = vi.fn();
++    const { rerender } = render(<Harness load={load} tick={0} />);
++
++    expect(load).toHaveBeenCalledTimes(1);
++    for (let tick = 1; tick <= 25; tick += 1) {
++      rerender(<Harness load={load} tick={tick} />);
++    }
++    // The regression this guards: a dependency rebuilt every render (t, a new
++    // callback) turned 25 re-renders into 25 more requests.
++    expect(load).toHaveBeenCalledTimes(1);
++  });
++
++  it("stays silent in a hidden tab and refetches once when it reappears", () => {
++    const load = vi.fn();
++    render(<Harness load={load} tick={0} />);
++    expect(load).toHaveBeenCalledTimes(1);
++
++    setVisibility("hidden");
++    expect(load).toHaveBeenCalledTimes(1);
++
++    setVisibility("visible");
++    expect(load).toHaveBeenCalledTimes(2);
++
++    // A duplicate "visible" event with no state change must not refetch.
++    setVisibility("visible");
++    expect(load).toHaveBeenCalledTimes(2);
++  });
++});
+diff --git a/packages/blocks/src/utils/index.ts b/packages/blocks/src/utils/index.ts
+index 5cb5a6a..868d682 100644
+--- a/packages/blocks/src/utils/index.ts
++++ b/packages/blocks/src/utils/index.ts
+@@ -8,3 +8,4 @@ export { DotSeparator } from "./dot-separator";
+ export type { DotSeparatorProps } from "./dot-separator";
+ export { convertPlacementToSideAndAlign } from "./placement";
+ export type { Align, Placement, Side, TAlign, TPlacement, TSide } from "./placement";
++export { useDocumentVisible } from "./use-document-visible";
+diff --git a/packages/blocks/src/utils/use-document-visible.ts b/packages/blocks/src/utils/use-document-visible.ts
+new file mode 100644
+index 0000000..4861af0
+--- /dev/null
++++ b/packages/blocks/src/utils/use-document-visible.ts
+@@ -0,0 +1,34 @@
++/**
++ * Copyright (c) 2023-present Plane Software, Inc. and contributors
++ * SPDX-License-Identifier: AGPL-3.0-only
++ * See the LICENSE file for details.
++ */
++
++import { useEffect, useState } from "react";
++
++/**
++ * Whether the browser tab is currently visible.
++ *
++ * Settings pages fetch once on mount and otherwise wait for a user action.
++ * There is no reason for a background tab to keep talking to the API, so mount
++ * effects that load data gate on this hook: hidden tabs stay silent, and
++ * becoming visible again re-runs the effect exactly once.
++ *
++ * Safe during SSR: the server has no document, so it reports visible and the
++ * client corrects it after hydration.
++ */
++export function useDocumentVisible(): boolean {
++  const [visible, setVisible] = useState(() =>
++    typeof document === "undefined" ? true : document.visibilityState !== "hidden"
++  );
++
++  useEffect(() => {
++    if (typeof document === "undefined") return;
++    const read = () => setVisible(document.visibilityState !== "hidden");
++    read();
++    document.addEventListener("visibilitychange", read);
++    return () => document.removeEventListener("visibilitychange", read);
++  }, []);
++
++  return visible;
++}

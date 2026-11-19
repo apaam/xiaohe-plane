@@ -7,3 +7,4 @@ FROM ${BUILD_IMAGE} AS built
 FROM ${UPSTREAM_IMAGE}
 
 COPY --from=built /app/apps/web/build/client /usr/share/caddy/html
+COPY build-version/version.json /usr/share/caddy/html/version.json

@@ -48,10 +48,10 @@ index 0000000..ef64e69
 +});
 diff --git a/apps/web/app/(all)/[workspaceSlug]/(settings)/settings/(workspace)/bots/page.tsx b/apps/web/app/(all)/[workspaceSlug]/(settings)/settings/(workspace)/bots/page.tsx
 new file mode 100644
-index 0000000..eeaa54d
+index 0000000..29cd0c4
 --- /dev/null
 +++ b/apps/web/app/(all)/[workspaceSlug]/(settings)/settings/(workspace)/bots/page.tsx
-@@ -0,0 +1,385 @@
+@@ -0,0 +1,404 @@
 +/**
 + * Copyright (c) 2023-present Plane Software, Inc. and contributors
 + * SPDX-License-Identifier: AGPL-3.0-only
@@ -65,6 +65,7 @@ index 0000000..eeaa54d
 +import { EUserPermissions, EUserPermissionsLevel } from "@plane/constants";
 +import { useTranslation } from "@plane/i18n";
 +import { setToast } from "@plane/blocks/toast";
++import { useDocumentVisible } from "@plane/blocks/utils";
 +import { Button } from "@makeplane/propel/components/button";
 +// components
 +import { NotAuthorizedView } from "@/components/auth-screens/not-authorized-view";
@@ -104,6 +105,7 @@ index 0000000..eeaa54d
 +  const { currentWorkspace } = useWorkspace();
 +  const { workspaceUserInfo, allowPermissions } = useUserPermissions();
 +  const isAdmin = allowPermissions([EUserPermissions.ADMIN], EUserPermissionsLevel.WORKSPACE);
++  const documentVisible = useDocumentVisible();
 +
 +  const [bots, setBots] = useState<Bot[] | null>(null);
 +  const [projects, setProjects] = useState<Project[]>([]);
@@ -135,8 +137,7 @@ index 0000000..eeaa54d
 +    );
 +  }, [workspaceSlug]);
 +
-+  useEffect(() => {
-+    if (!isAdmin) return;
++  const refresh = () => {
 +    load().catch((error) => {
 +      setBots([]);
 +      setToast({
@@ -145,7 +146,15 @@ index 0000000..eeaa54d
 +        message: String(error?.response?.data?.error ?? error?.message ?? ""),
 +      });
 +    });
-+  }, [isAdmin, load]); // eslint-disable-line react-hooks/exhaustive-deps -- @plane/i18n returns a fresh t on every render, so t in deps loops the effect
++  };
++
++  // Fetch once while the page is visible; a hidden tab stays silent. The effect
++  // depends only on the stable `load`, the admin flag and visibility — never on
++  // `t` or `onSuccess`, which are rebuilt on every render and would loop it.
++  useEffect(() => {
++    if (!isAdmin || !documentVisible) return;
++    refresh();
++  }, [isAdmin, documentVisible, load]); // eslint-disable-line react-hooks/exhaustive-deps -- refresh closes over the stable load; t must stay out of deps
 +
 +  const createBot = async () => {
 +    if (!name.trim()) return;
@@ -231,13 +240,23 @@ index 0000000..eeaa54d
 +          title={t("workspace_settings.bots.title")}
 +          description={t("workspace_settings.bots.description")}
 +          control={
-+            <Button
-+              variant="primary"
-+              size="md"
-+              stretch="auto"
-+              label={t("workspace_settings.bots.create")}
-+              onClick={() => setShowForm(true)}
-+            />
++            <div className="flex items-center gap-2">
++              <Button
++                variant="secondary"
++                size="md"
++                stretch="auto"
++                label={t("workspace_settings.bots.refresh")}
++                onClick={refresh}
++                disabled={busy}
++              />
++              <Button
++                variant="primary"
++                size="md"
++                stretch="auto"
++                label={t("workspace_settings.bots.create")}
++                onClick={() => setShowForm(true)}
++              />
++            </div>
 +          }
 +        />
 +
@@ -491,25 +510,23 @@ index e9d326e..4d53f00 100644
      WORKSPACE_SETTINGS["export"],
    ],
 diff --git a/packages/i18n/src/locales/en/workspace-settings.json b/packages/i18n/src/locales/en/workspace-settings.json
-index db85d0b..1d8b462 100644
+index db85d0b..f8ce651 100644
 --- a/packages/i18n/src/locales/en/workspace-settings.json
 +++ b/packages/i18n/src/locales/en/workspace-settings.json
-@@ -1,5 +1,39 @@
+@@ -1,5 +1,37 @@
  {
    "workspace_settings": {
 +    "bots": {
 +      "title": "Bots",
 +      "description": "Create bot accounts for agents. Each bot has its own API token and project access.",
 +      "create": "Create bot",
++      "refresh": "Refresh",
 +      "name": "Name",
 +      "name_placeholder": "e.g. LCH",
 +      "email_preview": "Email: {email}",
 +      "owner": "Owner",
 +      "owner_default": "Creator (me)",
 +      "owner_unset": "Unassigned",
-+        "owner": "Owner",
-+        "owner_default": "Creator (me)",
-+        "owner_unset": "Unassigned",
 +      "projects": "Projects",
 +      "submit": "Create",
 +      "cancel": "Cancel",
@@ -535,25 +552,23 @@ index db85d0b..1d8b462 100644
      "page_label": "{workspace} - General settings",
      "key_created": "Key created",
 diff --git a/packages/i18n/src/locales/zh-CN/workspace-settings.json b/packages/i18n/src/locales/zh-CN/workspace-settings.json
-index d6db4f0..158576c 100644
+index d6db4f0..4e86f64 100644
 --- a/packages/i18n/src/locales/zh-CN/workspace-settings.json
 +++ b/packages/i18n/src/locales/zh-CN/workspace-settings.json
-@@ -1,5 +1,39 @@
+@@ -1,5 +1,37 @@
  {
    "workspace_settings": {
 +    "bots": {
 +      "title": "机器人",
 +      "description": "为 agent 创建机器人账号；每个 bot 有独立 token 和项目权限。",
 +      "create": "新建 bot",
++      "refresh": "刷新",
 +      "name": "名称",
 +      "name_placeholder": "例如 LCH",
 +      "email_preview": "邮箱：{email}",
 +      "owner": "归属",
 +      "owner_default": "创建者（我）",
 +      "owner_unset": "未设置",
-+        "owner": "归属",
-+        "owner_default": "创建者（我）",
-+        "owner_unset": "未设置",
 +      "projects": "项目",
 +      "submit": "创建",
 +      "cancel": "取消",

@@ -29,6 +29,18 @@ for patch in "$REPO_ROOT"/web/patches/*.patch; do
   git apply "$patch"
 done
 
+# Build identity. It is compiled into the bundle (0017's version banner compares
+# the running bundle against the live server) and served as /version.json, so a
+# tab left open across a deploy can notice the new build without a hard refresh.
+BUILD_ID="${XIAOHE_BUILD_ID:-$(date -u +%Y%m%dT%H%M%SZ)-$(git rev-parse --short HEAD)}"
+GIT_SHA="$(git rev-parse HEAD)"
+BUILT_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+printf 'export const XIAOHE_BUILD_ID = "%s";\n' "$BUILD_ID" > apps/web/xiaohe-build.ts
+mkdir -p "$REPO_ROOT/web/build-version"
+printf '{"build_id":"%s","git_sha":"%s","built_at":"%s"}\n' \
+  "$BUILD_ID" "$GIT_SHA" "$BUILT_AT" > "$REPO_ROOT/web/build-version/version.json"
+echo "build id: $BUILD_ID"
+
 # Fonts are binary assets, so they live here and are copied over instead of
 # being carried in a git patch. 0015 imports them for CJK PDF export.
 FONT_DIR="apps/web/app/assets/fonts/noto-sans-sc"

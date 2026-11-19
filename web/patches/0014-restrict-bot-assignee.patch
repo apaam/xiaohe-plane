@@ -134,30 +134,30 @@ index 1dd1b38..fb7f45c 100644
        <>
          <Avatar alt={memberAvatarAlt(member)} src={member.avatar_url ?? ""} size="2xs" />
 diff --git a/packages/i18n/src/locales/en/workspace-settings.json b/packages/i18n/src/locales/en/workspace-settings.json
-index 899aed6..99bfcf6 100644
+index f8ce651..40ba4b4 100644
 --- a/packages/i18n/src/locales/en/workspace-settings.json
 +++ b/packages/i18n/src/locales/en/workspace-settings.json
-@@ -7,7 +7,8 @@
+@@ -8,7 +8,8 @@
        "name": "Name",
        "name_placeholder": "e.g. LCH",
        "email_preview": "Email: {email}",
 -      "owner": "Owner",
-+      "owner_only": "Owner only",
-+        "owner": "Owner",
++            "owner_only": "Owner only",
++"owner": "Owner",
        "owner_default": "Creator (me)",
        "owner_unset": "Unassigned",
-         "owner": "Owner",
+       "projects": "Projects",
 diff --git a/packages/i18n/src/locales/zh-CN/workspace-settings.json b/packages/i18n/src/locales/zh-CN/workspace-settings.json
-index c57ccee..f09701c 100644
+index 4e86f64..cc4bec9 100644
 --- a/packages/i18n/src/locales/zh-CN/workspace-settings.json
 +++ b/packages/i18n/src/locales/zh-CN/workspace-settings.json
-@@ -7,7 +7,8 @@
+@@ -8,7 +8,8 @@
        "name": "名称",
        "name_placeholder": "例如 LCH",
        "email_preview": "邮箱：{email}",
 -      "owner": "归属",
-+      "owner_only": "仅归属人可指派",
-+        "owner": "归属",
++            "owner_only": "仅归属人可指派",
++"owner": "归属",
        "owner_default": "创建者（我）",
        "owner_unset": "未设置",
-         "owner": "归属",
+       "projects": "项目",
