@@ -1,0 +1,48 @@
+diff --git a/apps/web/app/(all)/[workspaceSlug]/(settings)/settings/(workspace)/bots/page.tsx b/apps/web/app/(all)/[workspaceSlug]/(settings)/settings/(workspace)/bots/page.tsx
+index 37deec7..d0e2b79 100644
+--- a/apps/web/app/(all)/[workspaceSlug]/(settings)/settings/(workspace)/bots/page.tsx
++++ b/apps/web/app/(all)/[workspaceSlug]/(settings)/settings/(workspace)/bots/page.tsx
+@@ -262,14 +262,9 @@ function BotsSettingsPage({ params }: Route.ComponentProps) {
+           <div className="divide-y divide-subtle rounded-lg border border-subtle bg-surface-1">
+             {bots.map((bot) => (
+               <div key={bot.id} className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
+-                <div className="flex flex-col gap-1">
+-                  <div className="flex items-center gap-2">
++                <div className="flex min-w-0 flex-col gap-1">
++                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                     <span className="text-body-sm-medium text-primary">{bot.display_name}</span>
+-                    <span className="text-body-xs-regular text-tertiary">{bot.email}</span>
+-                    <span className="text-body-xs-regular text-tertiary">
+-                      {t("workspace_settings.bots.owner")}:{" "}
+-                      {bot.owner?.display_name ?? t("workspace_settings.bots.owner_unset")}
+-                    </span>
+                     <span
+                       className={
+                         bot.is_active
+@@ -282,17 +277,23 @@ function BotsSettingsPage({ params }: Route.ComponentProps) {
+                         : t("workspace_settings.bots.disabled")}
+                     </span>
+                   </div>
+-                  <span className="text-body-xs-regular text-tertiary">
++                  <span className="break-words text-body-xs-regular text-tertiary">
++                    {bot.email}
++                    {" · "}
++                    {t("workspace_settings.bots.owner")}:{" "}
++                    {bot.owner?.display_name ?? t("workspace_settings.bots.owner_unset")}
++                  </span>
++                  <span className="break-words text-body-xs-regular text-tertiary">
+                     {bot.projects.length > 0
+                       ? bot.projects.map((project) => `${project.identifier} · ${project.name}`).join(", ")
+                       : t("workspace_settings.bots.projects") + ": —"}
+                   </span>
+-                  <span className="text-body-xs-regular text-tertiary">
++                  <span className="break-words text-body-xs-regular text-tertiary">
+                     {t("workspace_settings.bots.last_used")}:{" "}
+                     {bot.last_used ?? t("workspace_settings.bots.never")}
+                   </span>
+                 </div>
+-                <div className="flex items-center gap-2">
++                <div className="flex shrink-0 items-center gap-2">
+                   <Button
+                     variant="secondary"
+                     size="md"

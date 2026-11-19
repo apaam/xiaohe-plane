@@ -18,6 +18,7 @@ Plane 上游前端原样构建，只在构建时打几个小补丁，不改业�
 | `0013-workspace-bots.patch` | Workspace Settings 增加 Bots 页：管理员创建/轮换/停用成员 bot |
 | `0014-restrict-bot-assignee.patch` | 非归属人/非管理员的 bot 在成员下拉框中灰色显示并标注 Owner only |
 | `0016-align-member-role-text.patch` | Workspace / Project Settings → Members：只读角色文字与可编辑角色下拉框对齐（高度、左缩进一致） |
+| `0017-bots-card-alignment.patch` | Workspace Settings → Bots：卡片内名称与状态单独成行，邮箱/归属、项目、最近使用各占一行，窄屏不再挤在一行 |
 
 ## 构建
 
