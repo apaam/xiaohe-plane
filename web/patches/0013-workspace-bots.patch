@@ -145,7 +145,7 @@ index 0000000..eeaa54d
 +        message: String(error?.response?.data?.error ?? error?.message ?? ""),
 +      });
 +    });
-+  }, [isAdmin, load, t]);
++  }, [isAdmin, load]); // eslint-disable-line react-hooks/exhaustive-deps -- @plane/i18n returns a fresh t on every render, so t in deps loops the effect
 +
 +  const createBot = async () => {
 +    if (!name.trim()) return;
