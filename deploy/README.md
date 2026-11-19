@@ -221,3 +221,17 @@ docker rmi xiaohe-plane-web:v1.5.0-xh13 xiaohe-plane-web-build:v1.5.0
 - 4GB 是**上限**，不是常驻占用；当前 worker 接近 384MiB 上限，若 OOM 先调高 worker 并下调 db 的 `mem_limit`，保持总和约 4GB。
 - 本机 Docker 重启会停掉没有重启策略的容器；`hetu-apps-broker` 已补 `unless-stopped`。
 - 升级固定 `APP_RELEASE`，先备份 `plane-db` 与 `uploads` 卷。
+
+## 9. api worker 数与 max-requests
+
+上游入口脚本把 `--max-requests 1200` 写死；gunicorn 的命令行参数优先级高于 `GUNICORN_CMD_ARGS`，环境变量覆盖不了，所以通过挂载参数化入口脚本实现：
+
+- `docker-entrypoint-api-xh.sh`：上游 `bin/docker-entrypoint-api.sh` 的副本，末行改为
+  `-w ${GUNICORN_WORKERS}`、`--max-requests ${GUNICORN_MAX_REQUESTS}`、`--max-requests-jitter ${GUNICORN_MAX_REQUESTS_JITTER}`。
+- override 中 api 的 `command:` 指向该脚本，并以只读 bind mount 挂到 `/code/bin/`。
+- 取值由 `plane.env` 的 `GUNICORN_WORKERS` / `GUNICORN_MAX_REQUESTS` / `GUNICORN_MAX_REQUESTS_JITTER` 控制；默认 4 / 5000 / 1000。
+- 4 个 worker 常驻约 560MiB，api `mem_limit` 相应为 1g。
+
+上游镜像升级时，对照新镜像的 `bin/docker-entrypoint-api.sh` 更新该副本。
+
+回滚到上游默认：删除 override 中 api 的 `command` 与 `volumes` 两行，`GUNICORN_WORKERS=1`，然后 `up -d api`。
