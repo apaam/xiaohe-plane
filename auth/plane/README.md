@@ -5,14 +5,14 @@
 ## 文件
 
 - `xiaohe_sso.py`：`/auth/xiaohe/start/` 与 `/auth/xiaohe/callback/`。
-- `bots.py`：`/auth/xiaohe/bots/<slug>/`，workspace Admin 自助创建、轮换、停用 bot（`-bot@xiaohe.local` 账号 + 管理 token）；创建时记录归属人。
+- `bots.py`：`/auth/xiaohe/bots/<slug>/`，workspace Admin 自助创建、轮换、停用 bot（`-bot@xiaohe.local` 账号 + 管理 token）；创建时记录归属人。停用/启用只作用于 token 与 workspace 成员身份，项目成员关系由项目设置单独管理，停用后再启用不会复活已被移出项目的 bot。
 - `/auth/xiaohe/bots/<slug>/assignable/`：任意成员可读，返回每个 bot 当前用户能否指派（供前端灰色显示）。
 - `bot_guard.py` + `patch_serializers.py`：在 issue 创建/更新时校验 bot 归属，只有归属人或 workspace Admin 能指派该 bot。
 - `urls_xiaohe.py`：两条路由。
 - `patch_urls.py`：构建时把路由挂进 Plane 的 `authentication/urls.py`，并加载 Page 图片补丁。
 - `asset_inline_patch.py`：让 Page 里的图片以 inline 方式返回，避免显示 “Error loading image”。
 - `Dockerfile`：基于 `makeplane/plane-backend:v1.5.0`。
-- `build.sh`：构建 `xiaohe-plane-backend:v1.5.0-xh16`。
+- `build.sh`：构建 backend 镜像，tag 由 `IMAGE_TAG` 指定（`scripts/build-and-push.sh` 会传完整的仓库地址）。
 
 ## 环境变量
 
@@ -25,18 +25,15 @@
 
 ## 构建
 
-```bash
-cd auth/plane
-./build.sh
-```
-
-在 VPS 上构建时，把本目录 scp 过去：
+在 ts-linux-ws 上构建并推送到 Gitea 容器仓库，VPS 只拉取（避免构建抢占 VPS 的 CPU、内存与磁盘；镜像拉取是入向流量，不受 5 Mbps 出网上限约束）：
 
 ```bash
-ssh ts-xiaohe 'mkdir -p ~/xiaohe-plane-auth'
-scp -q auth/plane/* ts-xiaohe:~/xiaohe-plane-auth/
-ssh ts-xiaohe 'cd ~/xiaohe-plane-auth && sudo docker build -t xiaohe-plane-backend:v1.5.0-xh16 .'
+# on ts-linux-ws, repo at ~/plane-build
+./scripts/build-and-push.sh v1.5.0-xh19                    # backend + web
+COMPONENTS=backend ./scripts/build-and-push.sh v1.5.0-xh19 # 只做 backend
 ```
+
+产物：`gitea.xiaohe.team/lzhshou/xiaohe-plane-backend:<tag>`（`auth/plane/build.sh` 的 tag 由 `IMAGE_TAG` 指定，基础镜像 `makeplane/plane-backend:v1.5.0` 需已在构建机上）。
 
 ## 部署
 
@@ -44,7 +41,7 @@ ssh ts-xiaohe 'cd ~/xiaohe-plane-auth && sudo docker build -t xiaohe-plane-backe
 
 ```yaml
   api:
-    image: xiaohe-plane-backend:v1.5.0-xh16
+    image: gitea.xiaohe.team/lzhshou/xiaohe-plane-backend:v1.5.0-xh19
     environment:
       XIAOHE_ACCOUNTS_URL: https://accounts.xiaohe.team
       XIAOHE_OAUTH_CLIENT_ID: plane
@@ -64,6 +61,22 @@ curl -sS -D - -o /dev/null "http://127.0.0.1:8080/auth/xiaohe/start/?next=/resea
 ```
 
 部署验收通过后清理旧镜像，见 `deploy/README.md` §7“部署后清理”。
+
+## 测试
+
+`tests/test_bots.py` 覆盖 bots 页的 payload 过滤与停用/启用语义，需在 plane 后端镜像里跑（镜像内有 Django，没有 pytest）。把源码与本测试挂进容器、指向一个空 PostgreSQL 即可，Django 会自建并销毁 `test_plane`：
+
+```bash
+sudo docker run --rm --network <test-net> \
+  -v "$PWD/bots.py:/code/plane/authentication/views/bots.py:ro" \
+  -v "$PWD/tests/test_bots.py:/code/plane/authentication/views/test_xiaohe_bots.py:ro" \
+  -e DATABASE_URL=postgresql://plane:plane@<test-db>/plane \
+  -e REDIS_URL=redis://<test-db>:6379/0 \
+  -e SECRET_KEY=test-key \
+  xiaohe-plane-backend:v1.5.0-xh16 \
+  python manage.py test plane.authentication.views.test_xiaohe_bots \
+    --settings=plane.settings.test --noinput
+```
 
 ## 回滚
 

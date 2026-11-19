@@ -6,3 +6,4 @@ plane.env
 admin-password
 backups/
 .playwright-cli/
+web/build-version/

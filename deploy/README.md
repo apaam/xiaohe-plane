@@ -18,7 +18,7 @@
 | agent 身份 | `agent-bot@xiaohe.local`；token `~/.xiaohe/plane/agent-token`（600） |
 | agent MCP | `~/.xiaohe/plane/plane-mcp.sh`；笔记本已注册为 `plane` |
 | 公网入口 | `plane.xiaohe.team` 已代理 Plane；SSO 入口 `/auth/xiaohe/start/` |
-| api 镜像 | `xiaohe-plane-backend:v1.5.0-xh16`（`auth/plane` + 订阅门槛） |
+| api 镜像 | `gitea.xiaohe.team/lzhshou/xiaohe-plane-backend:v1.5.0-xh23`（`auth/plane` + 订阅门槛 + 请求防护） |
 | 容器访问 accounts | `extra_hosts: accounts.xiaohe.team:host-gateway`，避免公网 hairpin 超时 |
 | 备份 | 每日 03:17 cron，`~/plane-backups`（Postgres dump + uploads tar，保留 14 天） |
 | 实际内存 | Plane 容器合计约 1.5GiB；host 可用约 4.6GiB |
@@ -28,6 +28,35 @@
 - Docker 29+、`docker-compose-v2`。
 - Docker registry mirror：`https://mirror.ccs.tencentyun.com`（VPS 直连 Docker Hub 会超时）。
 - 目录 `~/plane-selfhost`。
+
+## 0.1 镜像构建（ts-linux-ws 构建，Gitea 仓库分发）
+
+backend 与 web 两个自定义镜像不在 VPS 上构建：VPS 只有 4 核 / 7.6 GB，与线上十几个容器共用，构建（尤其冷构建）会抢占 CPU、内存与临时磁盘。镜像推送和拉取对 VPS 都是入向流量，不受 5 Mbps 出网上限约束（实测入向可达约 19 Mbps）。构建在 ts-linux-ws 上完成，推送 Gitea 容器仓库，VPS 只拉取成品镜像（web 压缩传输约 94 MB）。
+
+构建机一次性准备：
+
+- docker 已登录 `gitea.xiaohe.team`，凭据写在 `~/.docker/config.json`（600）。
+- `/etc/docker/daemon.json` 配置 `registry-mirrors: ["https://docker.1ms.run"]`（直连 Docker Hub 的 CloudFront 会 reset）与 `insecure-registries: ["100.64.0.4:3000"]`。
+- 源码在 `~/plane-build`，上游前端源码在 `~/plane-web-src`。
+
+构建与推送：
+
+```bash
+# on ts-linux-ws
+cd ~/plane-build/xiaohe-plane
+./scripts/build-and-push.sh v1.5.0-xh23              # backend + web
+COMPONENTS=web ./scripts/build-and-push.sh v1.5.0-xh23
+```
+
+推送走 tailnet 的 `100.64.0.4:3000`（绕开 `gitea.xiaohe.team` 的 nginx 限流），镜像仓库路径与公网名一致，VPS 用公网名拉取即可。
+
+VPS 拉取（登录一次，凭据在 `/root/.docker/config.json`，600）：
+
+```bash
+sudo docker login gitea.xiaohe.team -u git --password-stdin   # 密码从标准输入读，不落 shell 历史
+sudo docker pull gitea.xiaohe.team/lzhshou/xiaohe-plane-backend:v1.5.0-xh23
+sudo docker pull gitea.xiaohe.team/lzhshou/xiaohe-plane-web:v1.5.0-xh23
+```
 
 ## 1. 下载 release 资产
 
@@ -58,6 +87,8 @@ sudo docker compose --env-file plane.env \
 `configure.py` 会把 `__GENERATE__` 替换成独立密码，并把 `DATABASE_URL` / `AMQP_URL` 指向它们；不会打印密钥。
 
 ## 3. 拉取与启动
+
+`pull` 同时会从 Gitea 容器仓库拉取 override 里指定的 backend/web 镜像，需先在 VPS 上登录一次（§0.1）。
 
 ```bash
 sudo docker compose --env-file plane.env \
@@ -139,6 +170,27 @@ sudo docker compose --env-file plane.env -f docker-compose.yaml -f docker-compos
 sudo docker compose --env-file plane.env -f docker-compose.yaml -f docker-compose.override.yml down -v
 ```
 
+### 请求防护（v1.5.0-xh23 起）
+
+签名用户可以无上限地打 API，一个渲染循环就能压垮后端，所以请求路径有三层上限：
+
+- **限流**：Redis 令牌桶，按用户计。人类会话持续 5 req/s、突发 40；bot / API-key 持续 2 req/s、突发 20（plane-bridge 轮询节奏）。超限返回 429 与 `Retry-After`；同一用户超过 300 req/min 写一条 WARNING（`name=plane.authentication`，含 user id、路径、计数）。
+- **读缓存 + ETag**：`projects`、`members`、`bots`、`pages` 列表按用户缓存 3 秒并返回 `W/` ETag，重复请求多为 304；同一用户的任何写请求都会让缓存失效。
+- **版本兜底**：API 响应带 `X-Build-Id`，web 产物带 `/version.json`（含 `build_id`），前端据此提示新版本，不强制刷新。
+
+运行时开关，均在 `api` 容器的 environment 里，改后 `up -d api` 即生效，无需重建镜像：
+
+| 变量 | 默认 | 作用 |
+|---|---|---|
+| `XIAOHE_THROTTLE_ENABLED` | 1 | 0 关闭限流 |
+| `XIAOHE_READ_CACHE_ENABLED` | 1 | 0 关闭读缓存与 ETag |
+| `XIAOHE_USER_RATE` / `XIAOHE_USER_BURST` | 5 / 40 | 人类会话速率与突发 |
+| `XIAOHE_BOT_RATE` / `XIAOHE_BOT_BURST` | 2 / 20 | bot 速率与突发 |
+| `XIAOHE_RATE_WARN_PER_MIN` | 300 | 告警阈值 |
+| `XIAOHE_READ_CACHE_TTL` | 3 | 读缓存秒数 |
+
+误伤时先关对应层（无需重建镜像），确认后再决定是否调参。回滚镜像仍按上面的 tag 回退。
+
 ### 部署后清理
 
 只在验收通过后执行。以下任一项不满足就先不清，保留现场：
@@ -190,3 +242,17 @@ docker rmi xiaohe-plane-web:v1.5.0-xh13 xiaohe-plane-web-build:v1.5.0
 - 4GB 是**上限**，不是常驻占用；当前 worker 接近 384MiB 上限，若 OOM 先调高 worker 并下调 db 的 `mem_limit`，保持总和约 4GB。
 - 本机 Docker 重启会停掉没有重启策略的容器；`hetu-apps-broker` 已补 `unless-stopped`。
 - 升级固定 `APP_RELEASE`，先备份 `plane-db` 与 `uploads` 卷。
+
+## 9. api worker 数与 max-requests
+
+上游入口脚本把 `--max-requests 1200` 写死；gunicorn 的命令行参数优先级高于 `GUNICORN_CMD_ARGS`，环境变量覆盖不了，所以通过挂载参数化入口脚本实现：
+
+- `docker-entrypoint-api-xh.sh`：上游 `bin/docker-entrypoint-api.sh` 的副本，末行改为
+  `-w ${GUNICORN_WORKERS}`、`--max-requests ${GUNICORN_MAX_REQUESTS}`、`--max-requests-jitter ${GUNICORN_MAX_REQUESTS_JITTER}`。
+- override 中 api 的 `command:` 指向该脚本，并以只读 bind mount 挂到 `/code/bin/`。
+- 取值由 `plane.env` 的 `GUNICORN_WORKERS` / `GUNICORN_MAX_REQUESTS` / `GUNICORN_MAX_REQUESTS_JITTER` 控制；默认 4 / 5000 / 1000。
+- 4 个 worker 常驻约 560MiB，api `mem_limit` 相应为 1g。
+
+上游镜像升级时，对照新镜像的 `bin/docker-entrypoint-api.sh` 更新该副本。
+
+回滚到上游默认：删除 override 中 api 的 `command` 与 `volumes` 两行，`GUNICORN_WORKERS=1`，然后 `up -d api`。

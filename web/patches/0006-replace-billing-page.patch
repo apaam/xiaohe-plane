@@ -78,7 +78,7 @@ index 33100a4..afac8a1 100644
    return (
      <section className="relative scrollbar-hide size-full overflow-y-auto">
        <div>
-@@ -52,19 +27,24 @@ export const BillingRoot = observer(function BillingRoot() {
+@@ -52,19 +27,26 @@ export const BillingRoot = observer(function BillingRoot() {
          />
          <div className="mt-6">
            <SettingsBoxedControlItem
@@ -92,12 +92,14 @@ index 33100a4..afac8a1 100644
 +          <Button
 +            variant="primary"
 +            size="md"
++            stretch="auto"
 +            label={t("workspace_settings.settings.billing_and_plans.view_plans")}
 +            onClick={() => window.open(ACCOUNTS_PRODUCTS, "_blank", "noopener,noreferrer")}
 +          />
 +          <Button
 +            variant="secondary"
 +            size="md"
++            stretch="auto"
 +            label={t("workspace_settings.settings.billing_and_plans.billing_link")}
 +            onClick={() => window.open(ACCOUNTS_BILLING, "_blank", "noopener,noreferrer")}
            />

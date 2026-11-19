@@ -48,10 +48,10 @@ index 0000000..ef64e69
 +});
 diff --git a/apps/web/app/(all)/[workspaceSlug]/(settings)/settings/(workspace)/bots/page.tsx b/apps/web/app/(all)/[workspaceSlug]/(settings)/settings/(workspace)/bots/page.tsx
 new file mode 100644
-index 0000000..37deec7
+index 0000000..29cd0c4
 --- /dev/null
 +++ b/apps/web/app/(all)/[workspaceSlug]/(settings)/settings/(workspace)/bots/page.tsx
-@@ -0,0 +1,326 @@
+@@ -0,0 +1,404 @@
 +/**
 + * Copyright (c) 2023-present Plane Software, Inc. and contributors
 + * SPDX-License-Identifier: AGPL-3.0-only
@@ -65,6 +65,7 @@ index 0000000..37deec7
 +import { EUserPermissions, EUserPermissionsLevel } from "@plane/constants";
 +import { useTranslation } from "@plane/i18n";
 +import { setToast } from "@plane/blocks/toast";
++import { useDocumentVisible } from "@plane/blocks/utils";
 +import { Button } from "@makeplane/propel/components/button";
 +// components
 +import { NotAuthorizedView } from "@/components/auth-screens/not-authorized-view";
@@ -90,7 +91,11 @@ index 0000000..37deec7
 +  projects: BotProject[];
 +};
 +type Project = { id: string; identifier: string; name: string };
-+type Member = { id: string; member: { id: string; display_name: string; email: string }; is_active?: boolean };
++type Member = {
++  id: string;
++  member: { id: string; display_name: string; email: string; is_bot?: boolean };
++  is_active?: boolean;
++};
 +
 +const api = axios.create({ withCredentials: true });
 +
@@ -100,6 +105,7 @@ index 0000000..37deec7
 +  const { currentWorkspace } = useWorkspace();
 +  const { workspaceUserInfo, allowPermissions } = useUserPermissions();
 +  const isAdmin = allowPermissions([EUserPermissions.ADMIN], EUserPermissionsLevel.WORKSPACE);
++  const documentVisible = useDocumentVisible();
 +
 +  const [bots, setBots] = useState<Bot[] | null>(null);
 +  const [projects, setProjects] = useState<Project[]>([]);
@@ -110,6 +116,7 @@ index 0000000..37deec7
 +  const [selected, setSelected] = useState<string[]>([]);
 +  const [token, setToken] = useState<string | null>(null);
 +  const [busy, setBusy] = useState(false);
++  const [ownerDraft, setOwnerDraft] = useState<Record<string, string>>({});
 +
 +  const load = useCallback(async () => {
 +    const [botsRes, projectsRes, membersRes] = await Promise.all([
@@ -124,13 +131,13 @@ index 0000000..37deec7
 +      memberRows.filter(
 +        (row: Member) =>
 +          row.is_active !== false &&
++          row.member.is_bot !== true &&
 +          !String(row.member.email).endsWith("-bot@xiaohe.local")
 +      )
 +    );
 +  }, [workspaceSlug]);
 +
-+  useEffect(() => {
-+    if (!isAdmin) return;
++  const refresh = () => {
 +    load().catch((error) => {
 +      setBots([]);
 +      setToast({
@@ -139,7 +146,15 @@ index 0000000..37deec7
 +        message: String(error?.response?.data?.error ?? error?.message ?? ""),
 +      });
 +    });
-+  }, [isAdmin, load, t]);
++  };
++
++  // Fetch once while the page is visible; a hidden tab stays silent. The effect
++  // depends only on the stable `load`, the admin flag and visibility — never on
++  // `t` or `onSuccess`, which are rebuilt on every render and would loop it.
++  useEffect(() => {
++    if (!isAdmin || !documentVisible) return;
++    refresh();
++  }, [isAdmin, documentVisible, load]); // eslint-disable-line react-hooks/exhaustive-deps -- refresh closes over the stable load; t must stay out of deps
 +
 +  const createBot = async () => {
 +    if (!name.trim()) return;
@@ -168,12 +183,27 @@ index 0000000..37deec7
 +    }
 +  };
 +
-+  const runAction = async (bot: Bot, action: "rotate" | "disable" | "enable") => {
++  const runAction = async (
++    bot: Bot,
++    action: "rotate" | "disable" | "enable" | "owner",
++    ownerId?: string
++  ) => {
 +    setBusy(true);
 +    try {
-+      const res = await api.post(`/auth/xiaohe/bots/${workspaceSlug}/${bot.id}/${action}/`);
++      const res = await api.post(
++        `/auth/xiaohe/bots/${workspaceSlug}/${bot.id}/${action}/`,
++        action === "owner" ? { owner_id: ownerId } : undefined
++      );
 +      if (action === "rotate") setToken(res.data?.token ?? null);
 +      await load();
++      if (action === "owner") {
++        setOwnerDraft((current) => {
++          const next = { ...current };
++          delete next[bot.id];
++          return next;
++        });
++        setToast({ type: "success", title: t("workspace_settings.bots.owner_saved") });
++      }
 +      if (action === "rotate") {
 +        setToast({ type: "success", title: t("workspace_settings.bots.rotated") });
 +      }
@@ -210,13 +240,23 @@ index 0000000..37deec7
 +          title={t("workspace_settings.bots.title")}
 +          description={t("workspace_settings.bots.description")}
 +          control={
-+            <Button
-+              variant="primary"
-+              size="md"
-+              stretch="auto"
-+              label={t("workspace_settings.bots.create")}
-+              onClick={() => setShowForm(true)}
-+            />
++            <div className="flex items-center gap-2">
++              <Button
++                variant="secondary"
++                size="md"
++                stretch="auto"
++                label={t("workspace_settings.bots.refresh")}
++                onClick={refresh}
++                disabled={busy}
++              />
++              <Button
++                variant="primary"
++                size="md"
++                stretch="auto"
++                label={t("workspace_settings.bots.create")}
++                onClick={() => setShowForm(true)}
++              />
++            </div>
 +          }
 +        />
 +
@@ -320,10 +360,48 @@ index 0000000..37deec7
 +                  <div className="flex items-center gap-2">
 +                    <span className="text-body-sm-medium text-primary">{bot.display_name}</span>
 +                    <span className="text-body-xs-regular text-tertiary">{bot.email}</span>
-+                    <span className="text-body-xs-regular text-tertiary">
-+                      {t("workspace_settings.bots.owner")}:{" "}
-+                      {bot.owner?.display_name ?? t("workspace_settings.bots.owner_unset")}
-+                    </span>
++                    {isAdmin ? (
++                      <div className="flex flex-wrap items-center gap-2 text-body-xs-regular text-tertiary">
++                        {t("workspace_settings.bots.owner")}:
++                        <select
++                          className="rounded border border-subtle bg-surface-2 px-2 py-1 text-body-xs-regular text-primary"
++                          value={ownerDraft[bot.id] ?? bot.owner?.id ?? ""}
++                          onChange={(event) =>
++                            setOwnerDraft((current) => ({ ...current, [bot.id]: event.target.value }))
++                          }
++                          disabled={busy}
++                          aria-label={t("workspace_settings.bots.owner")}
++                        >
++                          {members.map((row) => (
++                            <option key={row.member.id} value={row.member.id}>
++                              {row.member.display_name || row.member.email}
++                            </option>
++                          ))}
++                          {bot.owner && !members.some((row) => row.member.id === bot.owner?.id) && (
++                            <option value={bot.owner.id}>{bot.owner.display_name || bot.owner.email}</option>
++                          )}
++                        </select>
++                        <Button
++                          variant="secondary"
++                          size="md"
++                          stretch="auto"
++                          label={t("workspace_settings.bots.save_owner")}
++                          onClick={() =>
++                            runAction(bot, "owner", ownerDraft[bot.id] ?? bot.owner?.id ?? "")
++                          }
++                          disabled={
++                            busy ||
++                            !(ownerDraft[bot.id] ?? bot.owner?.id ?? "") ||
++                            (ownerDraft[bot.id] ?? bot.owner?.id ?? "") === (bot.owner?.id ?? "")
++                          }
++                        />
++                      </div>
++                    ) : (
++                      <span className="text-body-xs-regular text-tertiary">
++                        {t("workspace_settings.bots.owner")}:{" "}
++                        {bot.owner?.display_name ?? t("workspace_settings.bots.owner_unset")}
++                      </span>
++                    )}
 +                    <span
 +                      className={
 +                        bot.is_active
@@ -432,7 +510,7 @@ index e9d326e..4d53f00 100644
      WORKSPACE_SETTINGS["export"],
    ],
 diff --git a/packages/i18n/src/locales/en/workspace-settings.json b/packages/i18n/src/locales/en/workspace-settings.json
-index 5804cfa..899aed6 100644
+index db85d0b..f8ce651 100644
 --- a/packages/i18n/src/locales/en/workspace-settings.json
 +++ b/packages/i18n/src/locales/en/workspace-settings.json
 @@ -1,5 +1,37 @@
@@ -442,15 +520,13 @@ index 5804cfa..899aed6 100644
 +      "title": "Bots",
 +      "description": "Create bot accounts for agents. Each bot has its own API token and project access.",
 +      "create": "Create bot",
++      "refresh": "Refresh",
 +      "name": "Name",
 +      "name_placeholder": "e.g. LCH",
 +      "email_preview": "Email: {email}",
 +      "owner": "Owner",
 +      "owner_default": "Creator (me)",
 +      "owner_unset": "Unassigned",
-+        "owner": "Owner",
-+        "owner_default": "Creator (me)",
-+        "owner_unset": "Unassigned",
 +      "projects": "Projects",
 +      "submit": "Create",
 +      "cancel": "Cancel",
@@ -468,13 +544,15 @@ index 5804cfa..899aed6 100644
 +      "never": "Never",
 +      "created": "Bot created",
 +      "rotated": "Token rotated",
-+      "failed": "Request failed"
++      "failed": "Request failed",
++      "save_owner": "Save owner",
++      "owner_saved": "Owner updated"
 +    },
      "label": "Workspace settings",
      "page_label": "{workspace} - General settings",
      "key_created": "Key created",
 diff --git a/packages/i18n/src/locales/zh-CN/workspace-settings.json b/packages/i18n/src/locales/zh-CN/workspace-settings.json
-index 3823c40..c57ccee 100644
+index d6db4f0..4e86f64 100644
 --- a/packages/i18n/src/locales/zh-CN/workspace-settings.json
 +++ b/packages/i18n/src/locales/zh-CN/workspace-settings.json
 @@ -1,5 +1,37 @@
@@ -484,15 +562,13 @@ index 3823c40..c57ccee 100644
 +      "title": "机器人",
 +      "description": "为 agent 创建机器人账号；每个 bot 有独立 token 和项目权限。",
 +      "create": "新建 bot",
++      "refresh": "刷新",
 +      "name": "名称",
 +      "name_placeholder": "例如 LCH",
 +      "email_preview": "邮箱：{email}",
 +      "owner": "归属",
 +      "owner_default": "创建者（我）",
 +      "owner_unset": "未设置",
-+        "owner": "归属",
-+        "owner_default": "创建者（我）",
-+        "owner_unset": "未设置",
 +      "projects": "项目",
 +      "submit": "创建",
 +      "cancel": "取消",
@@ -510,7 +586,9 @@ index 3823c40..c57ccee 100644
 +      "never": "未使用",
 +      "created": "bot 已创建",
 +      "rotated": "token 已轮换",
-+      "failed": "请求失败"
++      "failed": "请求失败",
++      "save_owner": "保存归属",
++      "owner_saved": "归属已更新"
 +    },
      "label": "工作区设置",
      "page_label": "{workspace} - 常规设置",

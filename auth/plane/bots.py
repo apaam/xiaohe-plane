@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import logging
 import re
+from uuid import UUID
 
 from django.db import transaction
 from rest_framework import status
@@ -73,7 +74,9 @@ def _bot_queryset(workspace):
 
 def _bot_payload(bot: User, workspace, member: WorkspaceMember | None) -> dict:
     projects = list(
-        ProjectMember.objects.filter(member=bot, project__workspace=workspace)
+        ProjectMember.objects.filter(
+            member=bot, project__workspace=workspace, is_active=True
+        )
         .select_related("project")
         .values("project_id", "project__identifier", "project__name")
     )
@@ -280,14 +283,30 @@ class BotActionView(APIView):
             )
             return Response({"token": token.token})
         if action == "owner":
-            owner_id = str(request.data.get("owner_id") or "")
-            if not WorkspaceMember.objects.filter(
-                workspace=workspace, member_id=owner_id, is_active=True
-            ).exists():
+            # A bot always has an owner: clearing it is not supported, use
+            # disable instead. Validate the id here so a bad value comes back
+            # as 400 rather than a ValidationError raised by the UUID filter.
+            owner_id = str(request.data.get("owner_id") or "").strip()
+            if not owner_id:
                 return Response(
-                    {"error": "owner must be an active workspace member"},
+                    {"error": "owner_id is required"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
+            try:
+                owner_uuid = UUID(owner_id)
+            except ValueError:
+                return Response(
+                    {"error": "owner_id must be a valid UUID"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if not WorkspaceMember.objects.filter(
+                workspace=workspace, member_id=owner_uuid, is_active=True
+            ).exists():
+                return Response(
+                    {"error": f"owner {owner_id} is not an active workspace member"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            owner_id = str(owner_uuid)
             set_bot_owner(bot, owner_id)
             logger.info(
                 "xiaohe bot owner set email=%s owner=%s by=%s",
@@ -297,11 +316,14 @@ class BotActionView(APIView):
             )
             return Response({"ok": True, "owner_id": owner_id})
         if action == "disable":
+            # Only the bot's credentials (tokens) and its workspace
+            # membership are revoked. Project memberships are left as they
+            # are so that a project admin's explicit removal of the bot from
+            # a project survives a disable -> enable round trip.
             tokens.update(is_active=False)
             if member:
                 member.is_active = False
                 member.save(update_fields=["is_active"])
-            ProjectMember.objects.filter(member=bot).update(is_active=False)
             bot.is_active = False
             bot.save(update_fields=["is_active"])
             logger.info(
@@ -309,10 +331,18 @@ class BotActionView(APIView):
             )
             return Response({"ok": True})
         if action == "enable":
+            # Mirror of disable: restore the workspace membership and the
+            # user flag, nothing else. Project memberships are not touched:
+            # re-adding the bot to a project is an explicit project-settings
+            # action. Tokens stay revoked as well; rotate to issue a new one.
+            #
+            # Historical rows: builds up to xh16 set ProjectMember.is_active
+            # to false on disable. Those rows are NOT restored here on
+            # purpose, since the same flag also records deliberate removals.
+            # Re-add the bot from the project's member settings if needed.
             if member:
                 member.is_active = True
                 member.save(update_fields=["is_active"])
-            ProjectMember.objects.filter(member=bot).update(is_active=True)
             bot.is_active = True
             bot.save(update_fields=["is_active"])
             logger.info(
