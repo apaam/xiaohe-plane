@@ -1,23 +1,23 @@
-diff --git a/apps/web/app/root.tsx b/apps/web/app/root.tsx
-index 8034624..37629ed 100644
---- a/apps/web/app/root.tsx
-+++ b/apps/web/app/root.tsx
-@@ -22,6 +22,7 @@ import globalStyles from "@/styles/globals.css?url";
- import type { Route } from "./+types/root";
- // components
- import { LogoSpinner } from "@/components/common/logo-spinner";
-+import { VersionWatcher } from "@/components/xiaohe/version-watcher";
- // lib
- import { isStaleAssetError, recoverFromStaleAsset } from "@/lib/stale-asset-error";
+diff --git a/apps/web/app/layout.tsx b/apps/web/app/layout.tsx
+index 165d835..a0fb393 100644
+--- a/apps/web/app/layout.tsx
++++ b/apps/web/app/layout.tsx
+@@ -10,6 +10,7 @@ import { cn } from "@plane/utils";
  // local
-@@ -75,6 +76,7 @@ export function Layout({ children }: { children: ReactNode }) {
-         <div id="editor-portal" />
-         <ThemeProvider themes={["light", "dark", "light-contrast", "dark-contrast", "custom"]} defaultTheme="system">
-           {children}
-+          <VersionWatcher />
-         </ThemeProvider>
-         <Scripts />
-       </body>
+ import { ensureTrailingSlash } from "./compat/next/helper";
+ import { AppProvider } from "./provider";
++import { VersionWatcher } from "@/components/xiaohe/version-watcher";
+ import type { Route } from "./+types/layout";
+ 
+ const trailingSlashRedirectMiddleware: Route.ClientMiddlewareFunction = async ({ request }, next) => {
+@@ -32,6 +33,7 @@ export default function AppShellLayout() {
+         <main className="relative h-full w-full overflow-hidden">
+           <Outlet />
+         </main>
++        <VersionWatcher />
+       </div>
+     </AppProvider>
+   );
 diff --git a/apps/web/components/xiaohe/version-watcher.tsx b/apps/web/components/xiaohe/version-watcher.tsx
 new file mode 100644
 index 0000000..22f3961
