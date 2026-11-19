@@ -15,15 +15,23 @@ services:
     mem_limit: 192m
     restart: unless-stopped
   api:
-    image: gitea.xiaohe.team/lzhshou/xiaohe-plane-backend:v1.5.0-xh19
-    mem_limit: 640m
+    image: gitea.xiaohe.team/lzhshou/xiaohe-plane-backend:v1.5.0-xh21
+    mem_limit: 1g
     restart: unless-stopped
+    # 上游镜像把 --max-requests 写死在入口脚本里，且 gunicorn 命令行参数优先级高于
+    # GUNICORN_CMD_ARGS，只能用本仓参数化后的入口脚本挂载覆盖。
+    command: ./bin/docker-entrypoint-api-xh.sh
+    volumes:
+      - ./docker-entrypoint-api-xh.sh:/code/bin/docker-entrypoint-api-xh.sh:ro
     extra_hosts:
       - "accounts.xiaohe.team:host-gateway"
     environment:
       XIAOHE_ACCOUNTS_URL: https://accounts.xiaohe.team
       XIAOHE_OAUTH_CLIENT_ID: plane
       XIAOHE_OAUTH_REDIRECT: https://plane.xiaohe.team/auth/xiaohe/callback/
+      GUNICORN_WORKERS: ${GUNICORN_WORKERS:-4}
+      GUNICORN_MAX_REQUESTS: ${GUNICORN_MAX_REQUESTS:-5000}
+      GUNICORN_MAX_REQUESTS_JITTER: ${GUNICORN_MAX_REQUESTS_JITTER:-1000}
   worker:
     mem_limit: 384m
     restart: unless-stopped
