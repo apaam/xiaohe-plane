@@ -18,7 +18,7 @@
 | agent 身份 | `agent-bot@xiaohe.local`；token `~/.xiaohe/plane/agent-token`（600） |
 | agent MCP | `~/.xiaohe/plane/plane-mcp.sh`；笔记本已注册为 `plane` |
 | 公网入口 | `plane.xiaohe.team` 已代理 Plane；SSO 入口 `/auth/xiaohe/start/` |
-| api 镜像 | `gitea.xiaohe.team/lzhshou/xiaohe-plane-backend:v1.5.0-xh19`（`auth/plane` + 订阅门槛） |
+| api 镜像 | `gitea.xiaohe.team/lzhshou/xiaohe-plane-backend:v1.5.0-xh21`（`auth/plane` + 订阅门槛） |
 | 容器访问 accounts | `extra_hosts: accounts.xiaohe.team:host-gateway`，避免公网 hairpin 超时 |
 | 备份 | 每日 03:17 cron，`~/plane-backups`（Postgres dump + uploads tar，保留 14 天） |
 | 实际内存 | Plane 容器合计约 1.5GiB；host 可用约 4.6GiB |
@@ -44,8 +44,8 @@ backend 与 web 两个自定义镜像不在 VPS 上构建：VPS 只有 4 核 / 7
 ```bash
 # on ts-linux-ws
 cd ~/plane-build/xiaohe-plane
-./scripts/build-and-push.sh v1.5.0-xh19              # backend + web
-COMPONENTS=web ./scripts/build-and-push.sh v1.5.0-xh19
+./scripts/build-and-push.sh v1.5.0-xh21              # backend + web
+COMPONENTS=web ./scripts/build-and-push.sh v1.5.0-xh21
 ```
 
 推送走 tailnet 的 `100.64.0.4:3000`（绕开 `gitea.xiaohe.team` 的 nginx 限流），镜像仓库路径与公网名一致，VPS 用公网名拉取即可。
@@ -54,7 +54,7 @@ VPS 拉取（登录一次，凭据在 `/root/.docker/config.json`，600）：
 
 ```bash
 sudo docker login gitea.xiaohe.team -u git --password-stdin   # 密码从标准输入读，不落 shell 历史
-sudo docker pull gitea.xiaohe.team/lzhshou/xiaohe-plane-backend:v1.5.0-xh19
+sudo docker pull gitea.xiaohe.team/lzhshou/xiaohe-plane-backend:v1.5.0-xh21
 sudo docker pull gitea.xiaohe.team/lzhshou/xiaohe-plane-web:v1.5.0-xh21
 ```
 
