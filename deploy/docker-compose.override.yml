@@ -1,6 +1,6 @@
 services:
   web:
-    image: gitea.xiaohe.team/lzhshou/xiaohe-plane-web:v1.5.0-xh20
+    image: gitea.xiaohe.team/lzhshou/xiaohe-plane-web:v1.5.0-xh21
     mem_limit: 384m
     restart: unless-stopped
     volumes:

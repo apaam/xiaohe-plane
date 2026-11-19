@@ -55,7 +55,7 @@ VPS 拉取（登录一次，凭据在 `/root/.docker/config.json`，600）：
 ```bash
 sudo docker login gitea.xiaohe.team -u git --password-stdin   # 密码从标准输入读，不落 shell 历史
 sudo docker pull gitea.xiaohe.team/lzhshou/xiaohe-plane-backend:v1.5.0-xh19
-sudo docker pull gitea.xiaohe.team/lzhshou/xiaohe-plane-web:v1.5.0-xh20
+sudo docker pull gitea.xiaohe.team/lzhshou/xiaohe-plane-web:v1.5.0-xh21
 ```
 
 ## 1. 下载 release 资产
