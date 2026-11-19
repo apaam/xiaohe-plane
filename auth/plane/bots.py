@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import logging
 import re
+from uuid import UUID
 
 from django.db import transaction
 from rest_framework import status
@@ -282,14 +283,30 @@ class BotActionView(APIView):
             )
             return Response({"token": token.token})
         if action == "owner":
-            owner_id = str(request.data.get("owner_id") or "")
-            if not WorkspaceMember.objects.filter(
-                workspace=workspace, member_id=owner_id, is_active=True
-            ).exists():
+            # A bot always has an owner: clearing it is not supported, use
+            # disable instead. Validate the id here so a bad value comes back
+            # as 400 rather than a ValidationError raised by the UUID filter.
+            owner_id = str(request.data.get("owner_id") or "").strip()
+            if not owner_id:
                 return Response(
-                    {"error": "owner must be an active workspace member"},
+                    {"error": "owner_id is required"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
+            try:
+                owner_uuid = UUID(owner_id)
+            except ValueError:
+                return Response(
+                    {"error": "owner_id must be a valid UUID"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if not WorkspaceMember.objects.filter(
+                workspace=workspace, member_id=owner_uuid, is_active=True
+            ).exists():
+                return Response(
+                    {"error": f"owner {owner_id} is not an active workspace member"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            owner_id = str(owner_uuid)
             set_bot_owner(bot, owner_id)
             logger.info(
                 "xiaohe bot owner set email=%s owner=%s by=%s",

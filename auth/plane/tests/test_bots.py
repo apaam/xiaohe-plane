@@ -14,6 +14,8 @@ The module lives in the Plane backend image as
         --settings=plane.settings.test
 """
 
+import uuid
+
 from django.test import TestCase
 from rest_framework.test import APIRequestFactory, force_authenticate
 
@@ -85,8 +87,8 @@ class BotTestBase(TestCase):
             created_by=self.admin,
         )
 
-    def _act(self, action: str):
-        request = self.factory.post("/")
+    def _act(self, action: str, data=None):
+        request = self.factory.post("/", data or {}, format="json")
         force_authenticate(request, user=self.admin)
         view = BotActionView.as_view()
         return view(
@@ -104,6 +106,49 @@ class BotPayloadTests(BotTestBase):
         self.assertEqual(
             [row["identifier"] for row in payload["projects"]], ["KEPT"]
         )
+
+
+class BotOwnerTests(BotTestBase):
+    def test_owner_rejects_empty_id(self):
+        response = self._act("owner", {"owner_id": ""})
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["error"], "owner_id is required")
+
+    def test_owner_rejects_missing_id(self):
+        response = self._act("owner", {})
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["error"], "owner_id is required")
+
+    def test_owner_rejects_malformed_uuid(self):
+        response = self._act("owner", {"owner_id": "not-a-uuid"})
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["error"], "owner_id must be a valid UUID")
+
+    def test_owner_rejects_non_member(self):
+        response = self._act("owner", {"owner_id": str(uuid.uuid4())})
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("not an active workspace member", response.data["error"])
+
+    def test_owner_rejects_inactive_member(self):
+        self.bot_member.is_active = False
+        self.bot_member.save(update_fields=["is_active"])
+        response = self._act("owner", {"owner_id": str(self.bot.id)})
+        self.assertEqual(response.status_code, 400)
+
+    def test_owner_sets_active_member(self):
+        other = User.objects.create(
+            email="other@example.com",
+            username="xh-other",
+            display_name="Other",
+        )
+        WorkspaceMember.objects.create(
+            workspace=self.workspace, member=other, role=MEMBER_ROLE
+        )
+        response = self._act("owner", {"owner_id": str(other.id)})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["owner_id"], str(other.id))
+        self.token.refresh_from_db()
+        self.assertIn(f"owner={other.id}", self.token.description)
 
 
 class BotDisableEnableTests(BotTestBase):
