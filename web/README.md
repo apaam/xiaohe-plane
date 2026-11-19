@@ -28,8 +28,8 @@ Plane 上游前端原样构建，只在构建时打几个小补丁，不改业�
 
 ```bash
 # on ts-linux-ws, repo at ~/plane-build
-COMPONENTS=web ./scripts/build-and-push.sh v1.5.0-xh23
-# 产物：gitea.xiaohe.team/lzhshou/xiaohe-plane-web:v1.5.0-xh23
+COMPONENTS=web ./scripts/build-and-push.sh v1.5.0-xh24
+# 产物：gitea.xiaohe.team/lzhshou/xiaohe-plane-web:v1.5.0-xh24
 ```
 
 脚本先 `git clone --depth 1 --branch v1.5.0` 上游源码，重置到 tag，打补丁，再用上游
@@ -42,7 +42,7 @@ COMPONENTS=web ./scripts/build-and-push.sh v1.5.0-xh23
 
 ```yaml
   web:
-    image: gitea.xiaohe.team/lzhshou/xiaohe-plane-web:v1.5.0-xh23
+    image: gitea.xiaohe.team/lzhshou/xiaohe-plane-web:v1.5.0-xh24
 ```
 
 仍挂载 `web-Caddyfile`（放宽静态资源限流到 10000/min）。
