@@ -23,6 +23,20 @@
 | 备份 | 每日 03:17 cron，`~/plane-backups`（Postgres dump + uploads tar，保留 14 天） |
 | 实际内存 | Plane 容器合计约 1.5GiB；host 可用约 4.6GiB |
 
+## 发布与回滚（2026-11-20 起）
+
+- 构建推送（ts-linux-ws）：`./scripts/build-and-push.sh <tag>`；backend 与 web
+  **必须使用同一个 tag**，部署脚本按 tag 拉取并解析 digest。
+- 部署（任意机器）：`./deploy/deploy-vps.sh <tag>`。脚本会快照 compose、
+  按 digest 固定 api/web、跑一次备份、`compose up -d`、以
+  `/version.json` 的 `build_id == tag` 加 12 个常驻服务 running 作为健康门；
+  失败自动回上一份快照。
+- 人工回滚：`./deploy/rollback-vps.sh [release-id]`，默认回上一个快照。
+- 快照位置：`~/plane-selfhost/releases/<ts>/`，`releases/current` 指向活动版；
+  保留当前 + 4 个上一版。
+- **不做整体蓝绿**：12 个容器再起一份约需 1.2 GiB，超出本机余量；digest
+  快照 + 健康门回滚是这里的等价保障。
+
 ## 0. 前置条件
 
 - Docker 29+、`docker-compose-v2`。

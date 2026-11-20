@@ -33,6 +33,7 @@ cd "$REMOTE_DIR"
 RELEASES="$PWD/releases"
 RELEASE="$RELEASES/$RELEASE_ID"
 PREV="$(readlink -f "$RELEASES/current" 2>/dev/null || true)"
+[[ -d "$PREV" ]] || PREV=""
 BASE=(sudo docker compose --env-file plane.env -f docker-compose.yaml -f docker-compose.override.yml)
 
 mkdir -p "$RELEASE"
@@ -56,7 +57,10 @@ echo "==> validate compose"
 "${REL[@]}" config >/dev/null
 
 echo "==> pre-deploy backup"
-bash backup-plane.sh || echo "!! backup failed; continuing (check ~/plane-backups)" >&2
+# Keep the helper away from stdin: bash is reading this script from stdin, and
+# a child that attaches stdin would swallow the rest of it.
+bash backup-plane.sh </dev/null \
+  || echo "!! backup failed; continuing (check ~/plane-backups)" >&2
 
 BIND="$(grep -E '^PLANE_BIND_IP=' plane.env | tail -1 | cut -d= -f2- || true)"
 BIND="${BIND:-127.0.0.1}"
@@ -92,7 +96,7 @@ health() {   # $1 = expected build id, empty means any
 }
 
 echo "==> start release $TAG"
-"${REL[@]}" up -d
+"${REL[@]}" up -d </dev/null
 if health "$TAG"; then
   :
 else
@@ -101,7 +105,7 @@ else
     echo "==> rolling back to $(basename "$PREV")" >&2
     OLD=(sudo docker compose --env-file plane.env -f docker-compose.yaml \
       -f docker-compose.override.yml -f "$PREV/docker-compose.release.yml")
-    "${OLD[@]}" up -d
+    "${OLD[@]}" up -d </dev/null
     if health ""; then
       echo "==> rolled back to $(basename "$PREV") (healthy)" >&2
     else
@@ -109,7 +113,7 @@ else
     fi
   else
     echo "==> first release: restarting the tagged compose as-is" >&2
-    "${BASE[@]}" up -d
+    "${BASE[@]}" up -d </dev/null
   fi
   exit 1
 fi
