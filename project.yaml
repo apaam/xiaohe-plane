@@ -10,6 +10,6 @@ upstream:
   repo: makeplane/plane
   release: v1.5.0
 deploy:
-  script: deploy/README.md
+  script: deploy/deploy-vps.sh
   target: ts-xiaohe
   ci: none
