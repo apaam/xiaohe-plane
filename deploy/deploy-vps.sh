@@ -21,13 +21,17 @@ TAG="${1:-}"
   echo "usage: deploy-vps.sh <tag>   e.g. v1.5.0-xh24" >&2
   exit 2
 }
+# Backend-only change? Pin a new backend tag while keeping the current web
+# image: BACKEND_TAG=v1.5.0-xh26 WEB_TAG=v1.5.0-xh25 ./deploy-vps.sh v1.5.0-xh26
+BACKEND_TAG="${BACKEND_TAG:-$TAG}"
+WEB_TAG="${WEB_TAG:-$TAG}"
 RELEASE_ID="$(date -u +%Y%m%dT%H%M%SZ)"
-BACKEND="gitea.xiaohe.team/lzhshou/xiaohe-plane-backend:$TAG"
-WEB="gitea.xiaohe.team/lzhshou/xiaohe-plane-web:$TAG"
+BACKEND="gitea.xiaohe.team/lzhshou/xiaohe-plane-backend:$BACKEND_TAG"
+WEB="gitea.xiaohe.team/lzhshou/xiaohe-plane-web:$WEB_TAG"
 
 echo "==> deploy Plane $TAG (release $RELEASE_ID) → $REMOTE:$REMOTE_DIR"
 ssh "$REMOTE" \
-  "TAG=$(printf '%q' "$TAG") RELEASE_ID=$(printf '%q' "$RELEASE_ID") REMOTE_DIR=$(printf '%q' "$REMOTE_DIR") BACKEND=$(printf '%q' "$BACKEND") WEB=$(printf '%q' "$WEB") bash -s" <<'REMOTE'
+  "TAG=$(printf '%q' "$TAG") WEB_TAG=$(printf '%q' "$WEB_TAG") RELEASE_ID=$(printf '%q' "$RELEASE_ID") REMOTE_DIR=$(printf '%q' "$REMOTE_DIR") BACKEND=$(printf '%q' "$BACKEND") WEB=$(printf '%q' "$WEB") bash -s" <<'REMOTE'
 set -euo pipefail
 cd "$REMOTE_DIR"
 RELEASES="$PWD/releases"
@@ -81,10 +85,19 @@ web_build_id() {
       2>/dev/null || true
 }
 
-health() {   # $1 = expected build id, empty means any
+api_ready() {
+  # A 401/403/429 from the pages route means gunicorn is accepting requests.
+  # A 502 means the proxy is up but the API has not finished booting.
+  local code
+  code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 \
+    "http://${BIND}:8080/auth/xiaohe/pages/research/" 2>/dev/null || true)"
+  [[ "$code" =~ ^(200|401|403|429)$ ]]
+}
+
+health() {   # $1 = expected web build id, empty means any
   local want="${1:-}" i current
   for ((i = 0; i < 180; i++)); do
-    if services_running; then
+    if services_running && api_ready; then
       current="$(web_build_id)"
       if [[ -n "$current" ]] && { [[ -z "$want" ]] || [[ "$current" == "$want" ]]; }; then
         return 0
@@ -97,7 +110,7 @@ health() {   # $1 = expected build id, empty means any
 
 echo "==> start release $TAG"
 "${REL[@]}" up -d </dev/null
-if health "$TAG"; then
+if health "$WEB_TAG"; then
   :
 else
   echo "!! health gate FAILED for $TAG" >&2
@@ -119,10 +132,10 @@ else
 fi
 
 sudo ln -sfn "$RELEASE" "$RELEASES/current"
-printf '{"service":"xiaohe-plane","tag":"%s","backend":"%s","web":"%s","deployed_at":"%s","previous":"%s","status":"ok"}\n' \
-  "$TAG" "$BACKEND_ID" "$WEB_ID" "$RELEASE_ID" "$(basename "${PREV:-none}")" \
+printf '{"service":"xiaohe-plane","tag":"%s","web_tag":"%s","backend":"%s","web":"%s","deployed_at":"%s","previous":"%s","status":"ok"}\n' \
+  "$TAG" "$WEB_TAG" "$BACKEND_ID" "$WEB_ID" "$RELEASE_ID" "$(basename "${PREV:-none}")" \
   > "$RELEASE/manifest.json"
-echo "==> healthy: $TAG (build_id $(web_build_id))"
+echo "==> healthy: backend $TAG, web $WEB_TAG (build_id $(web_build_id))"
 
 # Keep current + four previous releases.
 CURRENT="$(readlink -f "$RELEASES/current")"
@@ -141,4 +154,4 @@ REMOTE
 echo "==> smoke https://plane.xiaohe.team/version.json"
 curl -fsS --max-time 15 https://plane.xiaohe.team/version.json | head -c 400
 echo
-echo "==> done (Plane $TAG)"
+echo "==> done (backend $TAG, web $WEB_TAG)"

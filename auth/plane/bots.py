@@ -402,12 +402,25 @@ class PagesView(APIView):
             return False
         return {str(pid) for pid in project_ids} <= member_ids
 
+    def _can_write_any_project(self, user, project_ids) -> bool:
+        if not project_ids:
+            return True
+        try:
+            return ProjectMember.objects.filter(
+                member=user, project_id__in=project_ids, is_active=True
+            ).exists()
+        except Exception:
+            return False
+
     def _can_write_page(self, page: Page, user) -> bool:
         project_ids = list(
             ProjectPage.objects.filter(page=page).values_list("project_id", flat=True)
         )
         if project_ids:
-            return self._can_write_project(user, project_ids)
+            # Match the web app: a member of any linked project may edit the
+            # page. Creating a new page or moving it still requires membership
+            # in every target project via _can_write_project.
+            return self._can_write_any_project(user, project_ids)
         return WorkspaceMember.objects.filter(
             workspace=page.workspace, member=user, is_active=True
         ).exists()
