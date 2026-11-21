@@ -18,19 +18,21 @@
 | agent 身份 | `agent-bot@xiaohe.local`；token `~/.xiaohe/plane/agent-token`（600） |
 | agent MCP | `~/.xiaohe/plane/plane-mcp.sh`；笔记本已注册为 `plane` |
 | 公网入口 | `plane.xiaohe.team` 已代理 Plane；SSO 入口 `/auth/xiaohe/start/` |
-| api 镜像 | `gitea.xiaohe.team/lzhshou/xiaohe-plane-backend:v1.5.0-xh23`（`auth/plane` + 订阅门槛 + 请求防护） |
+| api 镜像 | `gitea.xiaohe.team/lzhshou/xiaohe-plane-backend:v1.5.0-xh26`（`auth/plane` + 订阅门槛 + 请求防护 + Pages 写接口） |
+| web 镜像 | `gitea.xiaohe.team/lzhshou/xiaohe-plane-web:v1.5.0-xh25`（前端补丁 + 版本提示） |
 | 容器访问 accounts | `extra_hosts: accounts.xiaohe.team:host-gateway`，避免公网 hairpin 超时 |
 | 备份 | 每日 03:17 cron，`~/plane-backups`（Postgres dump + uploads tar，保留 14 天） |
 | 实际内存 | Plane 容器合计约 1.5GiB；host 可用约 4.6GiB |
 
 ## 发布与回滚（2026-11-20 起）
 
-- 构建推送（ts-linux-ws）：`./scripts/build-and-push.sh <tag>`；backend 与 web
-  **必须使用同一个 tag**，部署脚本按 tag 拉取并解析 digest。
+- 构建推送（ts-linux-ws）：`./scripts/build-and-push.sh <tag>`；默认 backend 与 web
+  使用同一个 tag。只改后端时可以不重建 web：
+  `BACKEND_TAG=v1.5.0-xh26 WEB_TAG=v1.5.0-xh25 ./deploy/deploy-vps.sh v1.5.0-xh26`。
 - 部署（任意机器）：`./deploy/deploy-vps.sh <tag>`。脚本会快照 compose、
   按 digest 固定 api/web、跑一次备份、`compose up -d`、以
-  `/version.json` 的 `build_id == tag` 加 12 个常驻服务 running 作为健康门；
-  失败自动回上一份快照。
+  `/version.json` 的 `build_id == WEB_TAG`、12 个常驻服务 running，以及
+  Pages 路由返回 401/403/429（API 已就绪）作为健康门；失败自动回上一份快照。
 - 人工回滚：`./deploy/rollback-vps.sh [release-id]`，默认回上一个快照。
 - 快照位置：`~/plane-selfhost/releases/<ts>/`，`releases/current` 指向活动版；
   保留当前 + 4 个上一版。
