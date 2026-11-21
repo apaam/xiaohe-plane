@@ -15,7 +15,7 @@
 | 管理员 | `lai.zhengshou@outlook.com`；密码在 `~/.xiaohe/plane/admin-password`（600，break-glass） |
 | 登录 | xiaohe accounts SSO：`/auth/xiaohe/start/?next=/research/`；需有效小荷订阅（管理员豁免）；登录/注册/密码页统一跳 SSO；退出同时清 accounts 会话 |
 | api 镜像 | `gitea.xiaohe.team/lzhshou/xiaohe-plane-backend:v1.5.0-xh23`（auth/plane 适配 + 订阅门槛 + Bots API + bot 归属校验；按用户/bot 令牌桶限流、列表短缓存 + ETag、`X-Build-Id`；实际 tag 以 `deploy/docker-compose.override.yml` 为准） |
-| web 镜像 | `gitea.xiaohe.team/lzhshou/xiaohe-plane-web:v1.5.0-xh24`（Billing 订阅、Bots 管理页、收件箱密度与 IME Enter 修复、成员角色列对齐、后台标签页静默、构建版本提示条、Bots 卡片字段对齐） |
+| web 镜像 | `gitea.xiaohe.team/lzhshou/xiaohe-plane-web:v1.5.0-xh27`（Billing 订阅、Bots 管理页、收件箱密度与 IME Enter 修复、成员角色列对齐、后台标签页静默、构建版本提示条、Bots 卡片字段对齐、项目成员邀请角色下拉对齐） |
 | agent 身份 | `agent-bot@xiaohe.local`；token `~/.xiaohe/plane/agent-token`（600） |
 | agent MCP | `~/.xiaohe/plane/plane-mcp.sh`；笔记本已注册为 `plane` |
 | workspace | 课题组 / `research` |
