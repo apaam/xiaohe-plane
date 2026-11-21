@@ -1,0 +1,18 @@
+diff --git a/apps/web/components/project/send-project-invitation-modal.tsx b/apps/web/components/project/send-project-invitation-modal.tsx
+index a516617..e50af82 100644
+--- a/apps/web/components/project/send-project-invitation-modal.tsx
++++ b/apps/web/components/project/send-project-invitation-modal.tsx
+@@ -238,11 +238,11 @@ export const SendProjectInvitationModal = observer(function SendProjectInvitatio
+                                   pinSelected={false}
+                                 >
+                                   <Select.Trigger<TRoleOption>
+-                                    variant="pill-md"
++                                    variant="select-lg"
+                                     appendIcon={<ChevronDownOutline />}
+                                     tooltip={{ emptyContent: "Select role" }}
+                                   >
+-                                    <span className="min-w-0 grow truncate text-left capitalize">
++                                    <span className="min-w-0 flex-1 truncate text-left capitalize">
+                                       {value ? ROLE[value] : "Select role"}
+                                     </span>
+                                   </Select.Trigger>
