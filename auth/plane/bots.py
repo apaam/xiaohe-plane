@@ -19,11 +19,14 @@ Routes (mounted under ``/auth/`` by ``urls_xiaohe``):
 
 from __future__ import annotations
 
+import base64
 import logging
 import re
+from datetime import date
 from uuid import UUID
 
 from django.db import transaction
+from django.utils.dateparse import parse_date
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -43,6 +46,7 @@ from plane.db.models import (
     Workspace,
     WorkspaceMember,
 )
+from plane.utils.content_validator import validate_binary_data, validate_html_content
 
 logger = logging.getLogger(__name__)
 
@@ -355,11 +359,13 @@ class BotActionView(APIView):
 
 
 class PagesView(APIView):
-    """Read-only Pages access for bot tokens.
+    """Read/write Pages access for bot tokens.
 
     The official v1 API (and the web app API) do not expose Pages to API-key
-    callers. This endpoint fills that gap for public pages and for pages linked
-    to projects the caller belongs to.
+    callers. This endpoint fills that gap for pages linked to projects the
+    caller belongs to, and for workspace pages when the caller is a workspace
+    member. Writes follow the web editor's semantics: HTML-only updates clear
+    the JSON/binary body, and the stripped text is recomputed by Page.save().
     """
 
     authentication_classes = [APIKeyAuthentication]
@@ -381,6 +387,116 @@ class PagesView(APIView):
         return ProjectMember.objects.filter(
             member=user, project_id__in=project_ids, is_active=True
         ).exists()
+
+    def _can_write_project(self, user, project_ids) -> bool:
+        if not project_ids:
+            return True
+        try:
+            member_ids = {
+                str(pid)
+                for pid in ProjectMember.objects.filter(
+                    member=user, project_id__in=project_ids, is_active=True
+                ).values_list("project_id", flat=True)
+            }
+        except Exception:
+            return False
+        return {str(pid) for pid in project_ids} <= member_ids
+
+    def _can_write_page(self, page: Page, user) -> bool:
+        project_ids = list(
+            ProjectPage.objects.filter(page=page).values_list("project_id", flat=True)
+        )
+        if project_ids:
+            return self._can_write_project(user, project_ids)
+        return WorkspaceMember.objects.filter(
+            workspace=page.workspace, member=user, is_active=True
+        ).exists()
+
+    def _page_payload(self, page: Page) -> dict:
+        return {
+            "id": str(page.id),
+            "name": page.name,
+            "description_html": page.description_html,
+            "description_stripped": page.description_stripped,
+            "description_json": page.description_json,
+            "access": page.access,
+            "color": page.color,
+            "parent_id": str(page.parent_id) if page.parent_id else None,
+            "archived_at": page.archived_at.isoformat() if page.archived_at else None,
+            "updated_at": page.updated_at.isoformat(),
+            "project_ids": [
+                str(pid)
+                for pid in ProjectPage.objects.filter(page=page).values_list(
+                    "project_id", flat=True
+                )
+            ],
+        }
+
+    def _clean_html(self, value):
+        if value is None:
+            value = ""
+        ok, error, clean = validate_html_content(value)
+        if not ok:
+            return None, error
+        return (clean if clean is not None else ""), None
+
+    def _decode_binary(self, value):
+        if value in (None, ""):
+            return None, None
+        if isinstance(value, str):
+            try:
+                data = base64.b64decode(value, validate=True)
+            except Exception:
+                return None, "description_binary is not valid base64"
+        elif isinstance(value, (bytes, bytearray)):
+            data = bytes(value)
+        else:
+            return None, "description_binary must be a base64 string"
+        ok, error = validate_binary_data(data)
+        if not ok:
+            return None, error
+        return data, None
+
+    def _project_ids(self, workspace, requested):
+        if requested is None:
+            requested = []
+        if not isinstance(requested, list):
+            return None, "project_ids must be a list"
+        requested = [str(pid) for pid in requested]
+        if not requested:
+            return [], None
+        try:
+            projects = list(
+                Project.objects.filter(id__in=requested, workspace=workspace)
+            )
+        except Exception:
+            return None, "invalid project_ids"
+        if len(projects) != len(set(requested)):
+            return None, "invalid project_ids"
+        return requested, None
+
+    def _validate_access(self, value):
+        try:
+            access = int(value)
+        except (TypeError, ValueError):
+            return None
+        return access if access in (0, 1) else None
+
+    def _parent(self, workspace, value, page_id=None):
+        if value in (None, ""):
+            return None, None
+        try:
+            qs = Page.objects.filter(
+                id=value, workspace=workspace, archived_at__isnull=True
+            )
+            if page_id:
+                qs = qs.exclude(id=page_id)
+            parent = qs.first()
+        except Exception:
+            parent = None
+        if parent is None:
+            return None, "parent page not found"
+        return parent, None
 
     def get(self, request, slug: str, page_id: str | None = None):
         workspace = self._workspace(slug, request.user)
@@ -416,21 +532,233 @@ class PagesView(APIView):
                 {"error": "no access to this page"},
                 status=status.HTTP_403_FORBIDDEN,
             )
-        return Response(
-            {
-                "id": str(page.id),
-                "name": page.name,
-                "description_html": page.description_html,
-                "description_stripped": page.description_stripped,
-                "updated_at": page.updated_at.isoformat(),
-                "project_ids": [
-                    str(pid)
-                    for pid in ProjectPage.objects.filter(page=page).values_list(
-                        "project_id", flat=True
-                    )
-                ],
-            }
+        return Response(self._page_payload(page))
+
+    def post(self, request, slug: str):
+        workspace = self._workspace(slug, request.user)
+        if workspace is None:
+            return Response(
+                {"error": "not a workspace member"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        name = (request.data.get("name") or "").strip()
+        if not name:
+            return Response(
+                {"error": "name is required"}, status=status.HTTP_400_BAD_REQUEST
+            )
+        project_ids, error = self._project_ids(
+            workspace, request.data.get("project_ids")
         )
+        if error:
+            return Response({"error": error}, status=status.HTTP_400_BAD_REQUEST)
+        if not self._can_write_project(request.user, project_ids):
+            return Response(
+                {"error": "no access to one of the projects"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        html, error = self._clean_html(
+            request.data.get("description_html", "<p></p>")
+        )
+        if error:
+            return Response({"error": error}, status=status.HTTP_400_BAD_REQUEST)
+        binary, error = self._decode_binary(request.data.get("description_binary"))
+        if error:
+            return Response({"error": error}, status=status.HTTP_400_BAD_REQUEST)
+        description_json = request.data.get("description_json", {})
+        if description_json is None:
+            description_json = {}
+        if not isinstance(description_json, dict):
+            return Response(
+                {"error": "description_json must be an object"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        access = self._validate_access(
+            request.data.get("access", 1 if project_ids else 0)
+        )
+        if access is None:
+            return Response(
+                {"error": "access must be 0 or 1"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        parent, error = self._parent(
+            workspace, request.data.get("parent_id") or request.data.get("parent")
+        )
+        if error:
+            return Response({"error": error}, status=status.HTTP_400_BAD_REQUEST)
+        page = Page.objects.create(
+            workspace=workspace,
+            name=name,
+            description_html=html,
+            description_json=description_json,
+            description_binary=binary,
+            owned_by=request.user,
+            access=access,
+            color=request.data.get("color", ""),
+            parent=parent,
+        )
+        page.created_by = request.user
+        page.updated_by = request.user
+        page.save(disable_auto_set_user=True)
+        for project_id in project_ids:
+            link = ProjectPage.objects.create(
+                project_id=project_id, page=page, workspace=workspace
+            )
+            link.created_by = request.user
+            link.updated_by = request.user
+            link.save(disable_auto_set_user=True)
+        return Response(
+            self._page_payload(page), status=status.HTTP_201_CREATED
+        )
+
+    def patch(self, request, slug: str, page_id: str):
+        workspace = self._workspace(slug, request.user)
+        if workspace is None:
+            return Response(
+                {"error": "not a workspace member"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        page = Page.objects.filter(
+            id=page_id, workspace=workspace, archived_at__isnull=True
+        ).first()
+        if page is None:
+            return Response(
+                {"error": "page not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+        if not self._can_write_page(page, request.user):
+            return Response(
+                {"error": "no access to this page"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        data = request.data
+
+        if "name" in data:
+            name = (data.get("name") or "").strip()
+            if not name:
+                return Response(
+                    {"error": "name is required"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            page.name = name
+
+        if "description_html" in data:
+            html, error = self._clean_html(data.get("description_html"))
+            if error:
+                return Response(
+                    {"error": error}, status=status.HTTP_400_BAD_REQUEST
+                )
+            page.description_html = html
+            if "description_json" in data:
+                description_json = data.get("description_json")
+                if description_json is None:
+                    description_json = {}
+                if not isinstance(description_json, dict):
+                    return Response(
+                        {"error": "description_json must be an object"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                page.description_json = description_json
+            else:
+                # HTML-only writes clear the JSON/binary body, matching the
+                # web editor and the 2026-11-19 validation record.
+                page.description_json = {}
+            if "description_binary" in data:
+                binary, error = self._decode_binary(data.get("description_binary"))
+                if error:
+                    return Response(
+                        {"error": error}, status=status.HTTP_400_BAD_REQUEST
+                    )
+                page.description_binary = binary
+            else:
+                page.description_binary = None
+        else:
+            if "description_json" in data:
+                description_json = data.get("description_json")
+                if description_json is None:
+                    description_json = {}
+                if not isinstance(description_json, dict):
+                    return Response(
+                        {"error": "description_json must be an object"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                page.description_json = description_json
+            if "description_binary" in data:
+                binary, error = self._decode_binary(data.get("description_binary"))
+                if error:
+                    return Response(
+                        {"error": error}, status=status.HTTP_400_BAD_REQUEST
+                    )
+                page.description_binary = binary
+
+        if "access" in data:
+            access = self._validate_access(data.get("access"))
+            if access is None:
+                return Response(
+                    {"error": "access must be 0 or 1"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if page.access != access and page.owned_by_id != request.user.id:
+                return Response(
+                    {"error": "access can only be changed by the page owner"},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            page.access = access
+        if "color" in data:
+            page.color = str(data.get("color") or "")
+        if "is_locked" in data:
+            page.is_locked = bool(data.get("is_locked"))
+        if "parent_id" in data or "parent" in data:
+            parent, error = self._parent(
+                workspace,
+                data.get("parent_id") if "parent_id" in data else data.get("parent"),
+                page_id=page.id,
+            )
+            if error:
+                return Response(
+                    {"error": error}, status=status.HTTP_400_BAD_REQUEST
+                )
+            page.parent = parent
+        if "archive" in data:
+            page.archived_at = date.today() if data.get("archive") else None
+        elif "archived_at" in data:
+            value = data.get("archived_at")
+            if value in (None, ""):
+                page.archived_at = None
+            else:
+                parsed = (
+                    value
+                    if isinstance(value, date)
+                    else parse_date(str(value))
+                )
+                if parsed is None:
+                    return Response(
+                        {"error": "archived_at must be YYYY-MM-DD"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                page.archived_at = parsed
+
+        if "project_ids" in data:
+            project_ids, error = self._project_ids(workspace, data.get("project_ids"))
+            if error:
+                return Response(
+                    {"error": error}, status=status.HTTP_400_BAD_REQUEST
+                )
+            if not self._can_write_project(request.user, project_ids):
+                return Response(
+                    {"error": "no access to one of the projects"},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            ProjectPage.objects.filter(page=page).delete()
+            for project_id in project_ids:
+                link = ProjectPage.objects.create(
+                    project_id=project_id, page=page, workspace=workspace
+                )
+                link.created_by = request.user
+                link.updated_by = request.user
+                link.save(disable_auto_set_user=True)
+
+        page.updated_by = request.user
+        page.save(disable_auto_set_user=True)
+        return Response(self._page_payload(page))
 
 
 class BotsAssignableView(APIView):
