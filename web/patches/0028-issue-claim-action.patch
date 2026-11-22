@@ -1,0 +1,184 @@
+diff --git a/post-tree/apps/web/components/issues/issue-detail/claim-action.tsx b/apps/web/components/issues/issue-detail/claim-action.tsx
+new file mode 100644
+index 0000000..d8e90e4
+--- /dev/null
++++ b/apps/web/components/issues/issue-detail/claim-action.tsx
+@@ -0,0 +1,89 @@
++/**
++ * Copyright (c) 2023-present Plane Software, Inc. and contributors
++ * SPDX-License-Identifier: AGPL-3.0-only
++ * See the LICENSE file for details.
++ */
++
++import { useState } from "react";
++import { observer } from "mobx-react";
++// plane imports
++import { EUserPermissions, EUserPermissionsLevel } from "@plane/constants";
++import { useTranslation } from "@plane/i18n";
++import { UserPlusOutline } from "@makeplane/propel/icons";
++import { Button } from "@makeplane/propel/components/button";
++import { Icon } from "@makeplane/propel/components/icon";
++import { setToast } from "@plane/blocks/toast";
++import type { TIssue } from "@plane/types";
++// hooks
++import { useIssueDetail } from "@/hooks/store/use-issue-detail";
++import { useUser, useUserPermissions } from "@/hooks/store/user";
++
++type Props = {
++  workspaceSlug: string;
++  projectId: string;
++  issue: TIssue;
++  readOnly?: boolean;
++};
++
++/**
++ * One-click self-claim: assigns an unassigned work item to the current user.
++ * Members claim work themselves instead of an admin bulk-assigning it.
++ */
++export const IssueClaimAction = observer(function IssueClaimAction(props: Props) {
++  const { workspaceSlug, projectId, issue, readOnly = false } = props;
++  const { t } = useTranslation();
++  // states
++  const [isClaiming, setIsClaiming] = useState(false);
++  // store hooks
++  const { data: currentUser } = useUser();
++  const { allowPermissions } = useUserPermissions();
++  const { updateIssue } = useIssueDetail();
++  // auth: claiming = assigning to self, so it needs issue edit permission on the project
++  const isEditingAllowed =
++    allowPermissions(
++      [EUserPermissions.ADMIN, EUserPermissions.MEMBER],
++      EUserPermissionsLevel.PROJECT,
++      workspaceSlug,
++      projectId
++    ) &&
++    !readOnly &&
++    !issue.archived_at;
++  // only unassigned work items can be claimed
++  const canClaim = !!currentUser && isEditingAllowed && (issue.assignee_ids?.length ?? 0) === 0;
++
++  if (!canClaim) return null;
++
++  const handleClaim = async (e: React.MouseEvent<HTMLButtonElement>) => {
++    e.preventDefault();
++    e.stopPropagation();
++    if (!currentUser || isClaiming) return;
++    setIsClaiming(true);
++    try {
++      await updateIssue(workspaceSlug, projectId, issue.id, { assignee_ids: [currentUser.id] });
++      setToast({
++        type: "success",
++        title: t("issue.claim.success.title"),
++        message: t("issue.claim.success.message"),
++      });
++    } catch (_error) {
++      setToast({
++        type: "error",
++        title: t("toast.error"),
++        message: t("issue.claim.failed.message"),
++      });
++    } finally {
++      setIsClaiming(false);
++    }
++  };
++
++  return (
++    <Button
++      size="sm"
++      variant="secondary"
++      onClick={handleClaim}
++      loading={isClaiming}
++      icon={<Icon icon={UserPlusOutline} />}
++      label={t("issue.claim.label")}
++    />
++  );
++});
+diff --git a/apps/web/components/issues/issue-detail/issue-detail-quick-actions.tsx b/apps/web/components/issues/issue-detail/issue-detail-quick-actions.tsx
+index 44fde8e..c2a1029 100644
+--- a/apps/web/components/issues/issue-detail/issue-detail-quick-actions.tsx
++++ b/apps/web/components/issues/issue-detail/issue-detail-quick-actions.tsx
+@@ -23,6 +23,7 @@ import { useUser } from "@/hooks/store/user";
+ import { useAppRouter } from "@/hooks/use-app-router";
+ import { usePlatformOS } from "@/hooks/use-platform-os";
+ // local imports
++import { IssueClaimAction } from "./claim-action";
+ import { WorkItemDetailQuickActions } from "../issue-layouts/quick-action-dropdowns";
+ import { IssueSubscription } from "./subscription";
+ 
+@@ -157,6 +158,7 @@ export const IssueDetailQuickActions = observer(function IssueDetailQuickActions
+                 aria-label={t("common.actions.copy_link")}
+               />
+             </Tooltip>
++            <IssueClaimAction workspaceSlug={workspaceSlug} projectId={projectId} issue={issue} />
+             <WorkItemDetailQuickActions
+               parentRef={parentRef}
+               issue={issue}
+diff --git a/apps/web/components/issues/peek-overview/header.tsx b/apps/web/components/issues/peek-overview/header.tsx
+index 51afc4c..689492c 100644
+--- a/apps/web/components/issues/peek-overview/header.tsx
++++ b/apps/web/components/issues/peek-overview/header.tsx
+@@ -32,6 +32,7 @@ import { useUser } from "@/hooks/store/user";
+ import { usePlatformOS } from "@/hooks/use-platform-os";
+ // local imports
+ import { IssueSubscription } from "../issue-detail/subscription";
++import { IssueClaimAction } from "@/components/issues/issue-detail/claim-action";
+ import { WorkItemDetailQuickActions } from "../issue-layouts/quick-action-dropdowns";
+ import { NameDescriptionUpdateStatus } from "../issue-update-status";
+ import { IconButton } from "@makeplane/propel/components/icon-button";
+@@ -227,6 +228,14 @@ export const IssuePeekOverviewHeader = observer(function IssuePeekOverviewHeader
+               aria-label={t("common.actions.copy_link")}
+             />
+           </Tooltip>
++          {issueDetails && (
++            <IssueClaimAction
++              workspaceSlug={workspaceSlug}
++              projectId={projectId}
++              issue={issueDetails}
++              readOnly={disabled}
++            />
++          )}
+           {issueDetails && (
+             <WorkItemDetailQuickActions
+               parentRef={parentRef}
+diff --git a/packages/i18n/src/locales/en/work-item.json b/packages/i18n/src/locales/en/work-item.json
+index 8ee404c..fa38b91 100644
+--- a/packages/i18n/src/locales/en/work-item.json
++++ b/packages/i18n/src/locales/en/work-item.json
+@@ -193,6 +193,16 @@
+         "message": "Work item could not be restored. Please try again."
+       }
+     },
++    "claim": {
++      "label": "Claim",
++      "success": {
++        "title": "Claimed",
++        "message": "This work item is now assigned to you."
++      },
++      "failed": {
++        "message": "Could not claim this work item. Please try again."
++      }
++    },
+     "archived_banner": "This work item is archived. Restore it to make changes.",
+     "updated_time_ago": "Updated {time}",
+     "description_load_failed": "Couldn't load the description.",
+diff --git a/packages/i18n/src/locales/zh-CN/work-item.json b/packages/i18n/src/locales/zh-CN/work-item.json
+index c12b49b..78e2d1b 100644
+--- a/packages/i18n/src/locales/zh-CN/work-item.json
++++ b/packages/i18n/src/locales/zh-CN/work-item.json
+@@ -193,6 +193,16 @@
+         "message": "无法恢复工作项。请重试。"
+       }
+     },
++    "claim": {
++      "label": "认领",
++      "success": {
++        "title": "认领成功",
++        "message": "该工作项已指派给你。"
++      },
++      "failed": {
++        "message": "认领失败，请重试。"
++      }
++    },
+     "archived_banner": "此工作项已归档。请恢复后再进行更改。",
+     "updated_time_ago": "更新于 {time}",
+     "description_load_failed": "无法加载描述。",
