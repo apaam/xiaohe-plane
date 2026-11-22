@@ -21,6 +21,7 @@ Plane 上游前端原样构建，只在构建时打几个小补丁，不改业�
 | `0017-version-and-visibility.patch` | 后台标签页不发请求（`useDocumentVisible`）、构建版本提示条（`/version.json` 对比）与对应回归测试 |
 | `0018-bots-card-alignment.patch` | Workspace Settings → Bots：名称与状态单独一行；邮箱、归属（含改归属控件）、项目、最近使用各占一行左对齐，窄屏不再挤在一行 |
 | `0019-align-project-invite-role-select.patch` | Project Settings → Members → 添加成员弹窗：右侧角色下拉改用与左侧成员选择一致的表单高度（`select-lg`），不再高低错位 |
+| `0020-list-row-density.patch` | Work items 列表视图：组头、数据行与底部 New work item 行统一为 36px 高，去掉多余上下留白 |
 
 ## 构建
 

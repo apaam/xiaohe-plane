@@ -1,0 +1,52 @@
+diff --git a/apps/web/components/issues/issue-layouts/list/block.tsx b/apps/web/components/issues/issue-layouts/list/block.tsx
+index e30e0f8..fffb895 100644
+--- a/apps/web/components/issues/issue-layouts/list/block.tsx
++++ b/apps/web/components/issues/issue-layouts/list/block.tsx
+@@ -189,7 +189,7 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
+           rowRef(node);
+         }}
+         className={cn(
+-          "group/list-block relative flex min-h-11 flex-col gap-3 bg-layer-transparent py-3 text-body-xs-regular transition-colors hover:bg-layer-transparent-hover",
++          "group/list-block relative flex min-h-9 flex-col gap-3 bg-layer-transparent py-1.5 text-body-xs-regular transition-colors hover:bg-layer-transparent-hover",
+           {
+             "border-accent-strong": getIsIssuePeeked(issue.id) && peekIssue?.nestingLevel === nestingLevel,
+             "border-strong-1": isIssueActive,
+diff --git a/apps/web/components/issues/issue-layouts/list/headers/group-by-card.tsx b/apps/web/components/issues/issue-layouts/list/headers/group-by-card.tsx
+index 73a3936..c804b70 100644
+--- a/apps/web/components/issues/issue-layouts/list/headers/group-by-card.tsx
++++ b/apps/web/components/issues/issue-layouts/list/headers/group-by-card.tsx
+@@ -96,7 +96,7 @@ export const HeaderGroupByCard = observer(function HeaderGroupByCard(props: IHea
+ 
+   return (
+     <>
+-      <div className="group/list-header flex w-full flex-shrink-0 items-center gap-2 py-1.5">
++      <div className="group/list-header flex w-full flex-shrink-0 items-center gap-2 py-1">
+         {canSelectIssues && (
+           <div className="absolute left-0.5 flex w-4 flex-shrink-0 items-center">
+             <MultipleSelectGroupAction
+diff --git a/apps/web/components/issues/issue-layouts/list/list-group.tsx b/apps/web/components/issues/issue-layouts/list/list-group.tsx
+index 9dba556..7b829c5 100644
+--- a/apps/web/components/issues/issue-layouts/list/list-group.tsx
++++ b/apps/web/components/issues/issue-layouts/list/list-group.tsx
+@@ -264,7 +264,7 @@ export const ListGroup = observer(function ListGroup(props: Props) {
+       })}
+     >
+       <Row
+-        className={cn("w-full flex-shrink-0 border-b border-subtle bg-layer-1 py-1 pr-5 hover:bg-layer-1-hover", {
++        className={cn("w-full flex-shrink-0 border-b border-subtle bg-layer-1 py-0 pr-5 hover:bg-layer-1-hover", {
+           "sticky top-0 z-[2]": isExpanded && groupIssueCount > 0,
+         })}
+       >
+diff --git a/apps/web/components/issues/issue-layouts/quick-add/button/list.tsx b/apps/web/components/issues/issue-layouts/quick-add/button/list.tsx
+index 63eacd0..e7aafa5 100644
+--- a/apps/web/components/issues/issue-layouts/quick-add/button/list.tsx
++++ b/apps/web/components/issues/issue-layouts/quick-add/button/list.tsx
+@@ -16,7 +16,7 @@ export const ListQuickAddIssueButton = observer(function ListQuickAddIssueButton
+   const { t } = useTranslation();
+   return (
+     <Row
+-      className="flex w-full cursor-pointer items-center gap-2 bg-layer-transparent py-3 hover:bg-layer-transparent-hover"
++      className="flex min-h-9 w-full cursor-pointer items-center gap-2 bg-layer-transparent py-1.5 hover:bg-layer-transparent-hover"
+       onClick={onClick}
+     >
+       <AddOutline className="h-3.5 w-3.5" />
