@@ -415,13 +415,13 @@ class PagesView(APIView):
             return False
 
     def _can_write_page(self, page: Page, user) -> bool:
-        # Private pages follow the web app: any linked-project member may edit.
-        # Public pages are shared with the whole workspace; only the owner may
-        # change them (and may set access=1 without a separate write check).
         project_ids = list(
             ProjectPage.objects.filter(page=page).values_list("project_id", flat=True)
         )
         if project_ids:
+            # Match the web app: a member of any linked project may edit the
+            # page. Creating a new page or moving it still requires membership
+            # in every target project via _can_write_project.
             return self._can_write_any_project(user, project_ids)
         return WorkspaceMember.objects.filter(
             workspace=page.workspace, member=user, is_active=True
@@ -711,7 +711,7 @@ class PagesView(APIView):
                     {"error": "access must be 0 or 1"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            if page.access == 0 and page.owned_by_id != request.user.id:
+            if page.access != access and page.owned_by_id != request.user.id:
                 return Response(
                     {"error": "access can only be changed by the page owner"},
                     status=status.HTTP_403_FORBIDDEN,
