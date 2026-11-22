@@ -1,0 +1,48 @@
+diff --git a/apps/web/app/(all)/[workspaceSlug]/(projects)/projects/(detail)/[projectId]/layout.tsx b/apps/web/app/(all)/[workspaceSlug]/(projects)/projects/(detail)/[projectId]/layout.tsx
+index 40cee69..2eb2a18 100644
+--- a/apps/web/app/(all)/[workspaceSlug]/(projects)/projects/(detail)/[projectId]/layout.tsx
++++ b/apps/web/app/(all)/[workspaceSlug]/(projects)/projects/(detail)/[projectId]/layout.tsx
+@@ -32,7 +32,7 @@ function ProjectLayout({ params }: Route.ComponentProps) {
+     <>
+       {projectPreferences.navigationMode === "TABBED" && (
+         <div className="z-20">
+-          <Row className="flex h-header w-full items-center gap-2 border-b border-subtle bg-surface-1">
++          <Row className="flex h-10 w-full items-center gap-2 border-b border-subtle bg-surface-1">
+             <div className="flex h-full w-full items-center gap-2 divide-x divide-subtle">
+               <div className="flex size-full flex-1 items-center gap-2">
+                 {sidebarCollapsed && (
+diff --git a/apps/web/components/core/app-header.tsx b/apps/web/components/core/app-header.tsx
+index 2694280..ba36cf2 100644
+--- a/apps/web/components/core/app-header.tsx
++++ b/apps/web/components/core/app-header.tsx
+@@ -24,7 +24,7 @@ export const AppHeader = observer(function AppHeader(props: AppHeaderProps) {
+ 
+   return (
+     <div className={cn("z-[18]", className)}>
+-      <Row className={cn("flex h-12 w-full items-center gap-2 border-b border-subtle bg-surface-1", rowClassName)}>
++      <Row className={cn("flex h-10 w-full items-center gap-2 border-b border-subtle bg-surface-1", rowClassName)}>
+         <ExtendedAppHeader header={header} />
+       </Row>
+       {/* eslint-disable-next-line oxc/const-comparisons */}
+diff --git a/apps/web/components/navigation/tab-navigation-root.tsx b/apps/web/components/navigation/tab-navigation-root.tsx
+index ddb2434..4f7348a 100644
+--- a/apps/web/components/navigation/tab-navigation-root.tsx
++++ b/apps/web/components/navigation/tab-navigation-root.tsx
+@@ -196,7 +196,7 @@ export const TabNavigationRoot = observer(function TabNavigationRoot(props: TTab
+ 
+         <div ref={containerRef} className="flex h-full min-w-0 flex-1 items-center overflow-hidden">
+           <Tabs variant="underline" value={activeItem?.key ?? null}>
+-            <div className="-mb-3">
++            <div className="mb-0">
+               <TabsList>
+                 {/* Render visible tab items */}
+                 {visibleItems.map((item) => {
+@@ -233,7 +233,7 @@ export const TabNavigationRoot = observer(function TabNavigationRoot(props: TTab
+           {hasOverflow && (
+             <div className="pointer-events-none absolute -z-10 opacity-0" inert aria-hidden>
+               <Tabs variant="underline" value={activeItem?.key ?? null}>
+-                <div className="-mb-3">
++                <div className="mb-0">
+                   <TabsList>
+                     {visibleNavigationItems.map((item: TNavigationItem) => {
+                       const originalIndex = allNavigationItems.indexOf(item);
