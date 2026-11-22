@@ -35,6 +35,7 @@ from rest_framework.views import APIView
 from plane.api.middleware.api_authentication import APIKeyAuthentication
 from plane.authentication.bot_guard import bot_owner_id, set_bot_owner
 from plane.authentication.session import BaseSessionAuthentication
+from plane.authentication.xiaohe_throttle import XiaoheBotThrottle, XiaoheUserThrottle
 from plane.db.models import (
     APIToken,
     Profile,
@@ -368,8 +369,9 @@ class PagesView(APIView):
     the JSON/binary body, and the stripped text is recomputed by Page.save().
     """
 
-    authentication_classes = [APIKeyAuthentication]
+    authentication_classes = [APIKeyAuthentication, SessionAuthentication]
     permission_classes = [IsAuthenticated]
+    throttle_classes = [XiaoheUserThrottle, XiaoheBotThrottle]
 
     def _workspace(self, slug: str, user):
         return Workspace.objects.filter(
@@ -416,6 +418,10 @@ class PagesView(APIView):
         project_ids = list(
             ProjectPage.objects.filter(page=page).values_list("project_id", flat=True)
         )
+        if page.access == 0:
+            # Public pages are shared with the whole workspace; treat them as
+            # read-only except for the owner (matches how Plane surfaces them).
+            return page.owned_by_id == user.id
         if project_ids:
             # Match the web app: a member of any linked project may edit the
             # page. Creating a new page or moving it still requires membership
