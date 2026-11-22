@@ -1,0 +1,112 @@
+diff --git a/apps/web/app/(all)/[workspaceSlug]/(projects)/projects/(detail)/[projectId]/layout.tsx b/apps/web/app/(all)/[workspaceSlug]/(projects)/projects/(detail)/[projectId]/layout.tsx
+index 2eb2a18..a37d092 100644
+--- a/apps/web/app/(all)/[workspaceSlug]/(projects)/projects/(detail)/[projectId]/layout.tsx
++++ b/apps/web/app/(all)/[workspaceSlug]/(projects)/projects/(detail)/[projectId]/layout.tsx
+@@ -32,7 +32,7 @@ function ProjectLayout({ params }: Route.ComponentProps) {
+     <>
+       {projectPreferences.navigationMode === "TABBED" && (
+         <div className="z-20">
+-          <Row className="flex h-10 w-full items-center gap-2 border-b border-subtle bg-surface-1">
++          <Row className="flex h-10 w-full items-center gap-2 border-b border-subtle bg-surface-1 px-2 md:px-3">
+             <div className="flex h-full w-full items-center gap-2 divide-x divide-subtle">
+               <div className="flex size-full flex-1 items-center gap-2">
+                 {sidebarCollapsed && (
+@@ -40,7 +40,7 @@ function ProjectLayout({ params }: Route.ComponentProps) {
+                     <AppSidebarToggleButton />
+                   </div>
+                 )}
+-                <Header className={cn("h-full", { "pl-1.5": !sidebarCollapsed })}>
++                <Header className="h-full min-w-0">
+                   <Header.LeftItem className="flex h-full max-w-full items-center gap-2">
+                     <TabNavigationRoot workspaceSlug={workspaceSlug} projectId={projectId} />
+                   </Header.LeftItem>
+diff --git a/apps/web/components/navigation/project-header-button.tsx b/apps/web/components/navigation/project-header-button.tsx
+index 9126627..69fbd2b 100644
+--- a/apps/web/components/navigation/project-header-button.tsx
++++ b/apps/web/components/navigation/project-header-button.tsx
+@@ -16,7 +16,7 @@ type TProjectHeaderButtonProps = {
+ export function ProjectHeaderButton({ project }: TProjectHeaderButtonProps) {
+   return (
+     <Tooltip label={project.name} layout="stacked" side="bottom">
+-      <div className="relative flex w-full max-w-48 items-center pr-1 text-left select-none">
++      <div className="relative flex w-full max-w-24 md:max-w-48 items-center pr-1 text-left select-none">
+         <div className="flex size-7 flex-shrink-0 items-center justify-center rounded-md bg-layer-1">
+           <Logo logo={project.logo_props} size={16} />
+         </div>
+diff --git a/apps/web/components/navigation/tab-navigation-root.tsx b/apps/web/components/navigation/tab-navigation-root.tsx
+index 4f7348a..d65ba3b 100644
+--- a/apps/web/components/navigation/tab-navigation-root.tsx
++++ b/apps/web/components/navigation/tab-navigation-root.tsx
+@@ -177,7 +177,7 @@ export const TabNavigationRoot = observer(function TabNavigationRoot(props: TTab
+ 
+       {/* container for the tab navigation */}
+       <div className="flex size-full items-center gap-3 overflow-hidden">
+-        <div className="flex shrink-0 items-center gap-2">
++        <div className="flex min-w-0 shrink items-center gap-2">
+           <ProjectHeader workspaceSlug={workspaceSlug} projectId={projectId} />
+           <div className="shrink-0">
+             <ProjectActionsMenu
+@@ -197,7 +197,7 @@ export const TabNavigationRoot = observer(function TabNavigationRoot(props: TTab
+         <div ref={containerRef} className="flex h-full min-w-0 flex-1 items-center overflow-hidden">
+           <Tabs variant="underline" value={activeItem?.key ?? null}>
+             <div className="mb-0">
+-              <TabsList>
++              <TabsList className="project-header-tabs">
+                 {/* Render visible tab items */}
+                 {visibleItems.map((item) => {
+                   const originalIndex = allNavigationItems.indexOf(item);
+@@ -234,7 +234,7 @@ export const TabNavigationRoot = observer(function TabNavigationRoot(props: TTab
+             <div className="pointer-events-none absolute -z-10 opacity-0" inert aria-hidden>
+               <Tabs variant="underline" value={activeItem?.key ?? null}>
+                 <div className="mb-0">
+-                  <TabsList>
++                  <TabsList className="project-header-tabs">
+                     {visibleNavigationItems.map((item: TNavigationItem) => {
+                       const originalIndex = allNavigationItems.indexOf(item);
+                       return (
+diff --git a/apps/web/components/navigation/tab-navigation-visible-item.tsx b/apps/web/components/navigation/tab-navigation-visible-item.tsx
+index 7b10946..cd6e344 100644
+--- a/apps/web/components/navigation/tab-navigation-visible-item.tsx
++++ b/apps/web/components/navigation/tab-navigation-visible-item.tsx
+@@ -42,12 +42,12 @@ export function TabNavigationVisibleItem({
+   const isDefault = item.key === tabPreferences.defaultTab;
+ 
+   return (
+-    <div className="relative flex h-full items-center">
++    <div className="project-header-tab-item relative flex h-full items-center">
+       <div key={`${item.key}-measure`} ref={itemRef}>
+         <ContextMenu>
+           {/* The active underline is Propel's `TabsIndicator`, drawn by the enclosing `TabsList`. */}
+           <ContextMenuTrigger render={<div />}>
+-            <UnderlineTabLink value={item.key} label={t(item.i18n_key)} to={item.href} />
++            <UnderlineTabLink value={item.key} label={t(item.i18n_key)} to={item.href} className="project-header-tab" />
+           </ContextMenuTrigger>
+           <ContextMenuContent>
+             <ContextMenuItem
+diff --git a/apps/web/styles/globals.css b/apps/web/styles/globals.css
+index c048726..88ce508 100644
+--- a/apps/web/styles/globals.css
++++ b/apps/web/styles/globals.css
+@@ -102,3 +102,22 @@
+   max-height: calc(min(var(--available-height), 24rem) - 2px);
+   overflow: hidden;
+ }
++
++/* Xiaohe patch 0021: project header tab strip.
++   Upstream's underline tabs stack label + 8px gap + 3px bar and the list is
++   top-aligned (items-start), so inside the 40px bar the label pill is glued to
++   the top edge and the active bar lands on the border. Center the pill in the
++   bar and pin the bar — and the shared active-tab indicator — to the bar bottom. */
++.project-header-tabs {
++  height: 2.5rem; /* match the h-10 project header bar */
++  align-items: center;
++}
++.project-header-tab-item .project-header-tab > span:last-child {
++  position: absolute;
++  right: 0;
++  bottom: 0;
++  left: 0;
++}
++.project-header-tabs > span:last-child {
++  top: calc(100% - 3px);
++}
