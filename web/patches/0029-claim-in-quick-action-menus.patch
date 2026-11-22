@@ -1,0 +1,128 @@
+diff --git a/apps/web/components/issues/issue-layouts/quick-action-dropdowns/helper.tsx b/apps/web/components/issues/issue-layouts/quick-action-dropdowns/helper.tsx
+index ab4b658..2aea953 100644
+--- a/apps/web/components/issues/issue-layouts/quick-action-dropdowns/helper.tsx
++++ b/apps/web/components/issues/issue-layouts/quick-action-dropdowns/helper.tsx
+@@ -4,7 +4,7 @@
+  * See the LICENSE file for details.
+  */
+ 
+-import { useMemo } from "react";
++import { useMemo, useState } from "react";
+ import {
+   ArchiveOutline,
+   CloseCircleOutline,
+@@ -14,6 +14,7 @@ import {
+   LinkOutline,
+   NewTabOutline,
+   RestoreOutline,
++  UserPlusOutline,
+ } from "@makeplane/propel/icons";
+ // plane imports
+ import { useTranslation } from "@plane/i18n";
+@@ -22,6 +23,9 @@ import type { EIssuesStoreType, TIssue } from "@plane/types";
+ import type { TContextMenuItem } from "@plane/blocks/context-menu";
+ import { copyUrlToClipboard, generateWorkItemLink } from "@plane/utils";
+ import { createCopyMenuWithDuplication } from "./copy-menu-helper";
++// hooks
++import { useIssueDetail } from "@/hooks/store/use-issue-detail";
++import { useUser } from "@/hooks/store/user";
+ 
+ /**
+  * The quick-action menus sit inside clickable rows (ControlLink anchors, row `onClick`s). The legacy
+@@ -176,8 +180,11 @@ export const useIssueActionHandlers = (props: MenuItemFactoryProps) => {
+ 
+ export const useMenuItemFactory = (props: MenuItemFactoryProps) => {
+   const { t } = useTranslation();
++  const { data: currentUser } = useUser();
++  const { updateIssue } = useIssueDetail();
+   const actionHandlers = useIssueActionHandlers(props);
+ 
++  const [isClaiming, setIsClaiming] = useState(false);
+   const {
+     issue,
+     activeLayout = "",
+@@ -258,6 +265,36 @@ export const useMenuItemFactory = (props: MenuItemFactoryProps) => {
+     shouldRender: isEditingAllowed,
+   });
+ 
++  // Xiaohe: one-click self-claim — assign an unassigned work item to the current user.
++  const createClaimMenuItem = (): TContextMenuItem => ({
++    key: "claim",
++    title: t("issue.claim.label"),
++    icon: UserPlusOutline,
++    action: async () => {
++      if (!currentUser || !props.workspaceSlug || isClaiming) return;
++      setIsClaiming(true);
++      try {
++        await updateIssue(props.workspaceSlug, issue.project_id, issue.id, { assignee_ids: [currentUser.id] });
++        setToast({
++          type: "success",
++          title: t("issue.claim.success.title"),
++          message: t("issue.claim.success.message"),
++        });
++      } catch {
++        setToast({
++          type: "error",
++          title: t("toast.error"),
++          message: t("issue.claim.failed.message"),
++        });
++      } finally {
++        setIsClaiming(false);
++      }
++    },
++    disabled: isClaiming,
++    shouldRender:
++      isEditingAllowed && !!currentUser && !!props.workspaceSlug && !issue.archived_at && (issue.assignee_ids?.length ?? 0) === 0,
++  });
++
+   const createArchiveMenuItem = (): TContextMenuItem => ({
+     key: "archive",
+     title: t("common.actions.archive"),
+@@ -289,6 +326,7 @@ export const useMenuItemFactory = (props: MenuItemFactoryProps) => {
+   return {
+     ...actionHandlers,
+     createEditMenuItem,
++    createClaimMenuItem,
+     createCopyMenuItem,
+     createOpenInNewTabMenuItem,
+     createCopyLinkMenuItem,
+@@ -306,6 +344,7 @@ export const useProjectIssueMenuItems = (props: MenuItemFactoryProps): TContextM
+ 
+   return useMemo(
+     () => [
++      factory.createClaimMenuItem(),
+       factory.createEditMenuItem(),
+       factory.createCopyMenuItem(),
+       factory.createOpenInNewTabMenuItem(),
+@@ -322,6 +361,7 @@ export const useWorkItemDetailMenuItems = (props: MenuItemFactoryProps): TContex
+ 
+   return useMemo(
+     () => [
++      factory.createClaimMenuItem(),
+       factory.createCopyMenuItem(props.workspaceSlug),
+       factory.createOpenInNewTabMenuItem(),
+       factory.createArchiveMenuItem(),
+@@ -338,6 +378,7 @@ export const useAllIssueMenuItems = (props: MenuItemFactoryProps): TContextMenuI
+ 
+   return useMemo(
+     () => [
++      factory.createClaimMenuItem(),
+       factory.createEditMenuItem(),
+       factory.createCopyMenuItem(),
+       factory.createOpenInNewTabMenuItem(),
+@@ -362,6 +403,7 @@ export const useCycleIssueMenuItems = (props: MenuItemFactoryProps): TContextMen
+ 
+   return useMemo(
+     () => [
++      factory.createClaimMenuItem(),
+       factory.createEditMenuItem(customEditAction),
+       factory.createCopyMenuItem(),
+       factory.createOpenInNewTabMenuItem(),
+@@ -388,6 +430,7 @@ export const useModuleIssueMenuItems = (props: MenuItemFactoryProps): TContextMe
+ 
+   return useMemo(
+     () => [
++      factory.createClaimMenuItem(),
+       factory.createEditMenuItem(customEditAction),
+       factory.createCopyMenuItem(),
+       factory.createOpenInNewTabMenuItem(),
