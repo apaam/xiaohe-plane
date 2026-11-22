@@ -76,7 +76,15 @@ services_running() {
   running="$(sudo docker compose --env-file plane.env -f docker-compose.yaml \
     -f docker-compose.override.yml -f "$RELEASE/docker-compose.release.yml" \
     ps --status running --services 2>/dev/null | sort)"
-  [[ "$expected" == "$running" ]]
+  [[ "$expected" == "$running" ]] || return 1
+  # A release pins both images by digest; make sure the API actually runs it
+  # (a stale or failed pull can leave the old container in place).
+  local want_api got_api
+  want_api="$(awk '/^  api:/{f=1} f && /image:/{gsub(/[",]/,"",$2); print $2; exit}' \
+    "$RELEASE/docker-compose.release.yml")"
+  got_api="$(sudo docker inspect plane-selfhost-api-1 \
+    --format '{{if .Config.Image}}{{.Config.Image}}{{end}}' 2>/dev/null || true)"
+  [[ -n "$want_api" && "$got_api" == "$want_api" ]]
 }
 
 web_build_id() {

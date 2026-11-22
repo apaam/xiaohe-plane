@@ -369,7 +369,7 @@ class PagesView(APIView):
     the JSON/binary body, and the stripped text is recomputed by Page.save().
     """
 
-    authentication_classes = [APIKeyAuthentication, SessionAuthentication]
+    authentication_classes = [APIKeyAuthentication, BaseSessionAuthentication]
     permission_classes = [IsAuthenticated]
     throttle_classes = [XiaoheUserThrottle, XiaoheBotThrottle]
 
