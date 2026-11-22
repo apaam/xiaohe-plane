@@ -705,16 +705,19 @@ class PagesView(APIView):
                 page.description_binary = binary
 
         if "access" in data:
+            # Only the page owner may change visibility, mirroring the web
+            # app. Members may still edit title/body of public pages, but
+            # flipping access is owner-only.
+            if page.owned_by_id and str(page.owned_by_id) != str(request.user.id):
+                return Response(
+                    {"error": "access can only be changed by the page owner"},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
             access = self._validate_access(data.get("access"))
             if access is None:
                 return Response(
                     {"error": "access must be 0 or 1"},
                     status=status.HTTP_400_BAD_REQUEST,
-                )
-            if page.access != access and str(page.owned_by_id) != str(request.user.id):
-                return Response(
-                    {"error": "access can only be changed by the page owner"},
-                    status=status.HTTP_403_FORBIDDEN,
                 )
             page.access = access
         if "color" in data:
