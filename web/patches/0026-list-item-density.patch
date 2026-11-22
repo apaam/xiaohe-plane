@@ -1,0 +1,13 @@
+diff --git a/apps/web/components/core/list/list-item.tsx b/apps/web/components/core/list/list-item.tsx
+index 5c64db6..2d66418 100644
+--- a/apps/web/components/core/list/list-item.tsx
++++ b/apps/web/components/core/list/list-item.tsx
+@@ -73,7 +73,7 @@ export function ListItem(props: IListItemProps) {
+     <div ref={parentRef} className="relative">
+       <Row
+         className={cn(
+-          "group flex min-h-[52px] w-full flex-col items-center justify-between gap-3 border-b border-subtle bg-layer-transparent py-4 text-body-xs-regular hover:bg-layer-transparent-hover",
++          "group flex min-h-9 w-full flex-col items-center justify-between gap-3 border-b border-subtle bg-layer-transparent py-4 text-body-xs-regular hover:bg-layer-transparent-hover",
+           { "xl:flex-row xl:gap-5 xl:py-0": isSidebarOpen, "lg:flex-row lg:gap-5 lg:py-0": !isSidebarOpen },
+           className
+         )}
