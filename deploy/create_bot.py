@@ -1,5 +1,14 @@
 """Create or update a member's Plane bot user and issue it an API token.
 
+Env:
+    PLANE_BOT_EMAIL       bot account email (required)
+    PLANE_BOT_NAME        display name (default: email prefix)
+    PLANE_BOT_OWNER_ID    optional owner user UUID recorded on the token
+    PLANE_PROJECT_IDS     optional comma-separated project UUIDs
+    PLANE_WORKSPACE_SLUG  default research
+    PLANE_BOT_WORKSPACE_ROLE  default 15 (Member)
+    PLANE_BOT_PROJECT_ROLE    default 15 (Member)
+
 Run inside the api container:
 
     PLANE_BOT_EMAIL=zhangsan-bot@xiaohe.local \
@@ -72,12 +81,16 @@ for project in projects:
         defaults={"role": project_role},
     )
 
+owner_id = os.environ.get("PLANE_BOT_OWNER_ID", "").strip()
+description = "Provisioned by deploy/create_bot.py"
+if owner_id:
+    description += f"; owner={owner_id}"
 token = APIToken.objects.create(
     user=user,
     workspace=workspace,
     user_type=1,
     label=f"{name} bot token",
-    description="Provisioned by deploy/create_bot.py",
+    description=description,
 )
 
 print("bot", "created" if created else "updated", email)

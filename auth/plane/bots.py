@@ -55,6 +55,9 @@ BOT_DOMAIN = "@xiaohe.local"
 BOT_SUFFIX = "-bot" + BOT_DOMAIN
 ADMIN_ROLE = 20
 MEMBER_ROLE = 15
+# One workspace can hold at most this many bot accounts. The ceiling keeps the
+# workspace member list manageable and bounds the number of active tokens.
+MAX_BOTS = 5
 
 
 def _admin_workspace(slug: str, user):
@@ -173,6 +176,11 @@ class BotsView(APIView):
         if not name:
             return Response(
                 {"error": "name is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if _bot_queryset(workspace).count() >= MAX_BOTS:
+            return Response(
+                {"error": f"bot limit reached (max {MAX_BOTS} per workspace)"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         try:
