@@ -711,7 +711,7 @@ class PagesView(APIView):
                     {"error": "access must be 0 or 1"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            if page.access != access and page.owned_by_id != request.user.id:
+            if page.access != access and str(page.owned_by_id) != str(request.user.id):
                 return Response(
                     {"error": "access can only be changed by the page owner"},
                     status=status.HTTP_403_FORBIDDEN,
