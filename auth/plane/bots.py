@@ -686,9 +686,9 @@ class PagesView(APIView):
                 {"error": "description_json must be an object"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        access = self._validate_access(
-            request.data.get("access", 1 if project_ids else 0)
-        )
+        # Pages are public by default, matching the Plane web UI: project
+        # pages do not silently become private here.
+        access = self._validate_access(request.data.get("access", 0))
         if access is None:
             return Response(
                 {"error": "access must be 0 or 1"},
