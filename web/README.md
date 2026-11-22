@@ -25,6 +25,7 @@ Plane 上游前端原样构建，只在构建时打几个小补丁，不改业�
 | `0021-header-row-density.patch` | 项目页顶部两行：Work items/Modules/Pages 标签行与工具栏行统一为 40px 高（原 52/48px），去掉多余上下留白并重新对齐标签下划线 |
 | `0023-bot-self-service.patch` | Workspace Settings → Bots 对普通成员开放：成员只看到自己名下的 bot，可内联改名（管理员仍管理全部 bot、token 与项目权限） |
 | `0026-list-item-density.patch` | Pages（以及共用 ListItem 的 Cycles/Modules/Views）列表条目：行高从 52px 压到 36px，与 Work items 行一致 |
+| `0027-pages-header-density.patch` | Pages 列表子头部（Public/Private/Archived + 搜索/排序/筛选）：从 52px 压到 40px，标签下划线贴到行底；次级 Header 统一 40px |
 
 ## 构建
 
