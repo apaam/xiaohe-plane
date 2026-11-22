@@ -10,9 +10,10 @@ instead of running a Django shell inside the container.
 
 Routes (mounted under ``/auth/`` by ``urls_xiaohe``):
 
-    GET    /auth/xiaohe/bots/<slug>/
+    GET    /auth/xiaohe/bots/<slug>/          (admins: all bots; members: own bots)
     POST   /auth/xiaohe/bots/<slug>/
     POST   /auth/xiaohe/bots/<slug>/<bot_id>/rotate/
+    POST   /auth/xiaohe/bots/<slug>/<bot_id>/rename/
     POST   /auth/xiaohe/bots/<slug>/<bot_id>/disable/
     POST   /auth/xiaohe/bots/<slug>/<bot_id>/enable/
 """
@@ -58,6 +59,8 @@ MEMBER_ROLE = 15
 # One workspace can hold at most this many bot accounts. The ceiling keeps the
 # workspace member list manageable and bounds the number of active tokens.
 MAX_BOTS = 5
+# Display names longer than this do not fit the assignee dropdowns.
+MAX_BOT_NAME = 64
 
 
 def _admin_workspace(slug: str, user):
@@ -73,6 +76,15 @@ def _admin_workspace(slug: str, user):
     return workspace
 
 
+def _member_workspace(slug: str, user):
+    """Workspace the caller belongs to, regardless of role."""
+    return Workspace.objects.filter(
+        slug=slug,
+        workspace_member__member=user,
+        workspace_member__is_active=True,
+    ).first()
+
+
 def _bot_queryset(workspace):
     return User.objects.filter(
         member_workspace__workspace=workspace,
@@ -80,7 +92,12 @@ def _bot_queryset(workspace):
     ).distinct()
 
 
-def _bot_payload(bot: User, workspace, member: WorkspaceMember | None) -> dict:
+def _bot_payload(
+    bot: User,
+    workspace,
+    member: WorkspaceMember | None,
+    can_rename: bool = False,
+) -> dict:
     projects = list(
         ProjectMember.objects.filter(
             member=bot, project__workspace=workspace, is_active=True
@@ -109,6 +126,10 @@ def _bot_payload(bot: User, workspace, member: WorkspaceMember | None) -> dict:
         ),
         "is_active": bool(member and member.is_active),
         "token_active": any(token.is_active for token in tokens),
+        # The bot owner (and any workspace admin) may rename the account; the
+        # flag lets the settings page render the control without re-deriving
+        # ownership client-side.
+        "can_rename": bool(can_rename),
         "last_used": last_used.isoformat() if last_used else None,
         "projects": [
             {
@@ -142,13 +163,27 @@ class BotsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, slug: str):
-        workspace = _admin_workspace(slug, request.user)
+        workspace = _member_workspace(slug, request.user)
         if workspace is None:
             return Response(
-                {"error": "only workspace admins can manage bots"},
+                {"error": "not a workspace member"},
                 status=status.HTTP_403_FORBIDDEN,
             )
-        bots = _bot_queryset(workspace).order_by("display_name")
+        caller_member = WorkspaceMember.objects.filter(
+            workspace=workspace, member=request.user, is_active=True
+        ).first()
+        is_admin = bool(caller_member and caller_member.role >= ADMIN_ROLE)
+        bots = _bot_queryset(workspace)
+        owners = {bot.id: bot_owner_id(bot.id) for bot in bots}
+        if is_admin:
+            bots = sorted(bots, key=lambda bot: (bot.display_name or "").lower())
+        else:
+            # Members see the bots they own; ownership is stored on the token
+            # marker, the same source the assignee guard uses.
+            bots = sorted(
+                (bot for bot in bots if owners[bot.id] == str(request.user.id)),
+                key=lambda bot: (bot.display_name or "").lower(),
+            )
         members = {
             str(member.member_id): member
             for member in WorkspaceMember.objects.filter(
@@ -157,10 +192,18 @@ class BotsView(APIView):
         }
         return Response(
             {
+                "is_admin": is_admin,
                 "bots": [
-                    _bot_payload(bot, workspace, members.get(str(bot.id)))
+                    _bot_payload(
+                        bot,
+                        workspace,
+                        members.get(str(bot.id)),
+                        can_rename=(
+                            is_admin or owners[bot.id] == str(request.user.id)
+                        ),
+                    )
                     for bot in bots
-                ]
+                ],
             }
         )
 
@@ -250,7 +293,7 @@ class BotsView(APIView):
         ).first()
         return Response(
             {
-                "bot": _bot_payload(bot, workspace, member),
+                "bot": _bot_payload(bot, workspace, member, can_rename=True),
                 "token": token.token,
             },
             status=status.HTTP_201_CREATED,
@@ -262,12 +305,16 @@ class BotActionView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, slug: str, bot_id: str, action: str):
-        workspace = _admin_workspace(slug, request.user)
+        workspace = _member_workspace(slug, request.user)
         if workspace is None:
             return Response(
-                {"error": "only workspace admins can manage bots"},
+                {"error": "not a workspace member"},
                 status=status.HTTP_403_FORBIDDEN,
             )
+        caller_member = WorkspaceMember.objects.filter(
+            workspace=workspace, member=request.user, is_active=True
+        ).first()
+        is_admin = bool(caller_member and caller_member.role >= ADMIN_ROLE)
         bot = _bot_queryset(workspace).filter(id=bot_id).first()
         if bot is None:
             return Response(
@@ -277,6 +324,50 @@ class BotActionView(APIView):
             workspace=workspace, member=bot
         ).first()
         tokens = APIToken.objects.filter(user=bot, workspace=workspace)
+        if action == "rename":
+            # Owners may rename their own bot; admins may rename any bot. The
+            # email/username stay unchanged so existing memberships, tokens and
+            # assignment history keep pointing at the same account.
+            if not is_admin and bot_owner_id(bot.id) != str(request.user.id):
+                return Response(
+                    {"error": "only the bot owner or a workspace admin can rename this bot"},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            name = " ".join(str(request.data.get("name") or "").split())
+            if not name:
+                return Response(
+                    {"error": "name is required"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if len(name) > MAX_BOT_NAME:
+                return Response(
+                    {"error": f"name must be at most {MAX_BOT_NAME} characters"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            first_name, _, last_name = name.partition(" ")
+            bot.display_name = name
+            bot.first_name = first_name
+            bot.last_name = last_name
+            bot.save(update_fields=["display_name", "first_name", "last_name"])
+            logger.info(
+                "xiaohe bot renamed email=%s name=%s by=%s",
+                bot.email,
+                name,
+                request.user.email,
+            )
+            return Response(
+                {
+                    "ok": True,
+                    "bot": _bot_payload(
+                        bot, workspace, member, can_rename=True
+                    ),
+                }
+            )
+        if not is_admin:
+            return Response(
+                {"error": "only workspace admins can manage bots"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         if action == "rotate":
             owner_id = bot_owner_id(bot.id)
             tokens.update(is_active=False)

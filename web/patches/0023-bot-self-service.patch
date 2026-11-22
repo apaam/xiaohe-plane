@@ -1,0 +1,311 @@
+diff --git a/apps/web/app/(all)/[workspaceSlug]/(settings)/settings/(workspace)/bots/page.tsx b/apps/web/app/(all)/[workspaceSlug]/(settings)/settings/(workspace)/bots/page.tsx
+index 51a1849..3c34fd0 100644
+--- a/apps/web/app/(all)/[workspaceSlug]/(settings)/settings/(workspace)/bots/page.tsx
++++ b/apps/web/app/(all)/[workspaceSlug]/(settings)/settings/(workspace)/bots/page.tsx
+@@ -14,7 +14,6 @@ import { setToast } from "@plane/blocks/toast";
+ import { useDocumentVisible } from "@plane/blocks/utils";
+ import { Button } from "@makeplane/propel/components/button";
+ // components
+-import { NotAuthorizedView } from "@/components/auth-screens/not-authorized-view";
+ import { PageHead } from "@/components/core/page-title";
+ import { SettingsContentWrapper } from "@/components/settings/content-wrapper";
+ import { SettingsHeading } from "@/components/settings/heading";
+@@ -34,6 +33,7 @@ type Bot = {
+   token_active: boolean;
+   last_used: string | null;
+   owner: { id: string; display_name: string; email: string } | null;
++  can_rename: boolean;
+   projects: BotProject[];
+ };
+ type Project = { id: string; identifier: string; name: string };
+@@ -49,7 +49,7 @@ function BotsSettingsPage({ params }: Route.ComponentProps) {
+   const { workspaceSlug } = params;
+   const { t } = useTranslation();
+   const { currentWorkspace } = useWorkspace();
+-  const { workspaceUserInfo, allowPermissions } = useUserPermissions();
++  const { allowPermissions } = useUserPermissions();
+   const isAdmin = allowPermissions([EUserPermissions.ADMIN], EUserPermissionsLevel.WORKSPACE);
+   const documentVisible = useDocumentVisible();
+ 
+@@ -63,14 +63,18 @@ function BotsSettingsPage({ params }: Route.ComponentProps) {
+   const [token, setToken] = useState<string | null>(null);
+   const [busy, setBusy] = useState(false);
+   const [ownerDraft, setOwnerDraft] = useState<Record<string, string>>({});
++  const [renameDraft, setRenameDraft] = useState<Record<string, string>>({});
+ 
+   const load = useCallback(async () => {
+-    const [botsRes, projectsRes, membersRes] = await Promise.all([
+-      api.get(`/auth/xiaohe/bots/${workspaceSlug}/`),
++    // The endpoint scopes members to the bots they own; the admin-only
++    // project/member lists are only needed for the create and ownership forms.
++    const botsRes = await api.get(`/auth/xiaohe/bots/${workspaceSlug}/`);
++    setBots(botsRes.data?.bots ?? []);
++    if (!isAdmin) return;
++    const [projectsRes, membersRes] = await Promise.all([
+       api.get(`/api/workspaces/${workspaceSlug}/projects/`),
+       api.get(`/api/workspaces/${workspaceSlug}/members/`),
+     ]);
+-    setBots(botsRes.data?.bots ?? []);
+     setProjects(Array.isArray(projectsRes.data) ? projectsRes.data : projectsRes.data?.results ?? []);
+     const memberRows = Array.isArray(membersRes.data) ? membersRes.data : membersRes.data?.results ?? [];
+     setMembers(
+@@ -81,7 +85,7 @@ function BotsSettingsPage({ params }: Route.ComponentProps) {
+           !String(row.member.email).endsWith("-bot@xiaohe.local")
+       )
+     );
+-  }, [workspaceSlug]);
++  }, [workspaceSlug, isAdmin]);
+ 
+   const refresh = () => {
+     load().catch((error) => {
+@@ -95,12 +99,12 @@ function BotsSettingsPage({ params }: Route.ComponentProps) {
+   };
+ 
+   // Fetch once while the page is visible; a hidden tab stays silent. The effect
+-  // depends only on the stable `load`, the admin flag and visibility — never on
+-  // `t` or `onSuccess`, which are rebuilt on every render and would loop it.
++  // depends only on the stable `load` and visibility — never on `t` or
++  // `onSuccess`, which are rebuilt on every render and would loop it.
+   useEffect(() => {
+-    if (!isAdmin || !documentVisible) return;
++    if (!documentVisible) return;
+     refresh();
+-  }, [isAdmin, documentVisible, load]); // eslint-disable-line react-hooks/exhaustive-deps -- refresh closes over the stable load; t must stay out of deps
++  }, [documentVisible, load]); // eslint-disable-line react-hooks/exhaustive-deps -- refresh closes over the stable load; t must stay out of deps
+ 
+   const createBot = async () => {
+     if (!name.trim()) return;
+@@ -170,21 +174,47 @@ function BotsSettingsPage({ params }: Route.ComponentProps) {
+     setToast({ type: "success", title: t("workspace_settings.bots.copied") });
+   };
+ 
++  const renameBot = async (bot: Bot) => {
++    const next = (renameDraft[bot.id] ?? bot.display_name).trim();
++    if (!next || next === bot.display_name) return;
++    setBusy(true);
++    try {
++      await api.post(`/auth/xiaohe/bots/${workspaceSlug}/${bot.id}/rename/`, {
++        name: next,
++      });
++      setRenameDraft((current) => {
++        const copy = { ...current };
++        delete copy[bot.id];
++        return copy;
++      });
++      await load();
++      setToast({ type: "success", title: t("workspace_settings.bots.renamed") });
++    } catch (error: any) {
++      setToast({
++        type: "error",
++        title: t("workspace_settings.bots.failed"),
++        message: String(error?.response?.data?.error ?? error?.message ?? ""),
++      });
++    } finally {
++      setBusy(false);
++    }
++  };
++
+   const pageTitle = currentWorkspace?.name
+     ? `${currentWorkspace.name} - ${t("workspace_settings.bots.title")}`
+     : undefined;
+ 
+-  if (workspaceUserInfo && !isAdmin) {
+-    return <NotAuthorizedView section="settings" className="h-auto" />;
+-  }
+-
+   return (
+     <SettingsContentWrapper header={<BotsWorkspaceSettingsHeader />}>
+       <PageHead title={pageTitle} />
+       <div className="flex w-full flex-col gap-4">
+         <SettingsHeading
+           title={t("workspace_settings.bots.title")}
+-          description={t("workspace_settings.bots.description")}
++          description={
++            isAdmin
++              ? t("workspace_settings.bots.description")
++              : t("workspace_settings.bots.description_member")
++          }
+           control={
+             <div className="flex items-center gap-2">
+               <Button
+@@ -195,13 +225,15 @@ function BotsSettingsPage({ params }: Route.ComponentProps) {
+                 onClick={refresh}
+                 disabled={busy}
+               />
+-              <Button
+-                variant="primary"
+-                size="md"
+-                stretch="auto"
+-                label={t("workspace_settings.bots.create")}
+-                onClick={() => setShowForm(true)}
+-              />
++              {isAdmin && (
++                <Button
++                  variant="primary"
++                  size="md"
++                  stretch="auto"
++                  label={t("workspace_settings.bots.create")}
++                  onClick={() => setShowForm(true)}
++                />
++              )}
+             </div>
+           }
+         />
+@@ -296,7 +328,9 @@ function BotsSettingsPage({ params }: Route.ComponentProps) {
+           <p className="text-body-sm-regular text-tertiary">Loading…</p>
+         ) : bots.length === 0 ? (
+           <p className="text-body-sm-regular text-tertiary">
+-            {t("workspace_settings.bots.empty")}
++            {isAdmin
++              ? t("workspace_settings.bots.empty")
++              : t("workspace_settings.bots.empty_mine")}
+           </p>
+         ) : (
+           <div className="divide-y divide-subtle rounded-lg border border-subtle bg-surface-1">
+@@ -318,6 +352,32 @@ function BotsSettingsPage({ params }: Route.ComponentProps) {
+                     </span>
+                   </div>
+                   <span className="break-words text-body-xs-regular text-tertiary">{bot.email}</span>
++                  {bot.can_rename && (
++                    <div className="flex flex-wrap items-center gap-2">
++                      <input
++                        className="rounded border border-subtle bg-surface-2 px-2 py-1 text-body-xs-regular text-primary"
++                        aria-label={t("workspace_settings.bots.rename")}
++                        placeholder={t("workspace_settings.bots.rename_placeholder")}
++                        value={renameDraft[bot.id] ?? bot.display_name}
++                        onChange={(event) =>
++                          setRenameDraft((current) => ({ ...current, [bot.id]: event.target.value }))
++                        }
++                        disabled={busy}
++                      />
++                      <Button
++                        variant="secondary"
++                        size="md"
++                        stretch="auto"
++                        label={t("workspace_settings.bots.save_name")}
++                        onClick={() => renameBot(bot)}
++                        disabled={
++                          busy ||
++                          !(renameDraft[bot.id] ?? bot.display_name).trim() ||
++                          (renameDraft[bot.id] ?? bot.display_name).trim() === bot.display_name
++                        }
++                      />
++                    </div>
++                  )}
+                   {isAdmin ? (
+                     <div className="flex flex-wrap items-center gap-2 text-body-xs-regular text-tertiary">
+                       {t("workspace_settings.bots.owner")}:
+@@ -370,28 +430,30 @@ function BotsSettingsPage({ params }: Route.ComponentProps) {
+                     {bot.last_used ?? t("workspace_settings.bots.never")}
+                   </span>
+                 </div>
+-                <div className="flex shrink-0 items-center gap-2">
+-                  <Button
+-                    variant="secondary"
+-                    size="md"
+-                    stretch="auto"
+-                    label={t("workspace_settings.bots.rotate")}
+-                    onClick={() => runAction(bot, "rotate")}
+-                    disabled={busy}
+-                  />
+-                  <Button
+-                    variant="secondary"
+-                    size="md"
+-                    stretch="auto"
+-                    label={
+-                      bot.is_active
+-                        ? t("workspace_settings.bots.disable")
+-                        : t("workspace_settings.bots.enable")
+-                    }
+-                    onClick={() => runAction(bot, bot.is_active ? "disable" : "enable")}
+-                    disabled={busy}
+-                  />
+-                </div>
++                {isAdmin && (
++                  <div className="flex shrink-0 items-center gap-2">
++                    <Button
++                      variant="secondary"
++                      size="md"
++                      stretch="auto"
++                      label={t("workspace_settings.bots.rotate")}
++                      onClick={() => runAction(bot, "rotate")}
++                      disabled={busy}
++                    />
++                    <Button
++                      variant="secondary"
++                      size="md"
++                      stretch="auto"
++                      label={
++                        bot.is_active
++                          ? t("workspace_settings.bots.disable")
++                          : t("workspace_settings.bots.enable")
++                      }
++                      onClick={() => runAction(bot, bot.is_active ? "disable" : "enable")}
++                      disabled={busy}
++                    />
++                  </div>
++                )}
+               </div>
+             ))}
+           </div>
+diff --git a/packages/constants/src/settings/workspace.ts b/packages/constants/src/settings/workspace.ts
+index 4d53f00..ccbd646 100644
+--- a/packages/constants/src/settings/workspace.ts
++++ b/packages/constants/src/settings/workspace.ts
+@@ -45,7 +45,7 @@ export const WORKSPACE_SETTINGS: Record<TWorkspaceSettingsTabs, TWorkspaceSettin
+     key: "bot",
+     i18n_label: "workspace_settings.bots.title",
+     href: `/settings/bots`,
+-    access: [EUserWorkspaceRoles.ADMIN],
++    access: [EUserWorkspaceRoles.ADMIN, EUserWorkspaceRoles.MEMBER],
+     highlight: (pathname: string, baseUrl: string) => pathname === `${baseUrl}/settings/bots/`,
+   },
+   "billing-and-plans": {
+diff --git a/packages/i18n/src/locales/en/workspace-settings.json b/packages/i18n/src/locales/en/workspace-settings.json
+index 750a265..35a532d 100644
+--- a/packages/i18n/src/locales/en/workspace-settings.json
++++ b/packages/i18n/src/locales/en/workspace-settings.json
+@@ -3,6 +3,7 @@
+     "bots": {
+       "title": "Bots",
+       "description": "Create bot accounts for agents. Each bot has its own API token and project access.",
++      "description_member": "Bots you own. Rename them here; tokens and project access stay with workspace admins.",
+       "create": "Create bot",
+       "refresh": "Refresh",
+       "name": "Name",
+@@ -25,6 +26,11 @@
+       "active": "Active",
+       "disabled": "Disabled",
+       "empty": "No bots yet.",
++      "empty_mine": "You don't own any bots yet.",
++      "rename": "Rename",
++      "rename_placeholder": "New bot name",
++      "save_name": "Save name",
++      "renamed": "Bot renamed",
+       "last_used": "Last used",
+       "never": "Never",
+       "created": "Bot created",
+diff --git a/packages/i18n/src/locales/zh-CN/workspace-settings.json b/packages/i18n/src/locales/zh-CN/workspace-settings.json
+index 8710439..049db79 100644
+--- a/packages/i18n/src/locales/zh-CN/workspace-settings.json
++++ b/packages/i18n/src/locales/zh-CN/workspace-settings.json
+@@ -3,6 +3,7 @@
+     "bots": {
+       "title": "机器人",
+       "description": "为 agent 创建机器人账号；每个 bot 有独立 token 和项目权限。",
++      "description_member": "这里是归你所有的 bot，可在此重命名；token 与项目权限由工作区管理员管理。",
+       "create": "新建 bot",
+       "refresh": "刷新",
+       "name": "名称",
+@@ -25,6 +26,11 @@
+       "active": "启用中",
+       "disabled": "已停用",
+       "empty": "还没有 bot。",
++      "empty_mine": "你名下还没有 bot。",
++      "rename": "重命名",
++      "rename_placeholder": "新的 bot 名称",
++      "save_name": "保存名称",
++      "renamed": "bot 已重命名",
+       "last_used": "最后使用",
+       "never": "未使用",
+       "created": "bot 已创建",

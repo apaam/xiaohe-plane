@@ -23,6 +23,7 @@ Plane 上游前端原样构建，只在构建时打几个小补丁，不改业�
 | `0019-align-project-invite-role-select.patch` | Project Settings → Members → 添加成员弹窗：右侧角色下拉改用与左侧成员选择一致的表单高度（`select-lg`），不再高低错位 |
 | `0020-list-row-density.patch` | Work items 列表视图：组头、数据行与底部 New work item 行统一为 36px 高，去掉多余上下留白 |
 | `0021-header-row-density.patch` | 项目页顶部两行：Work items/Modules/Pages 标签行与工具栏行统一为 40px 高（原 52/48px），去掉多余上下留白并重新对齐标签下划线 |
+| `0023-bot-self-service.patch` | Workspace Settings → Bots 对普通成员开放：成员只看到自己名下的 bot，可内联改名（管理员仍管理全部 bot、token 与项目权限） |
 
 ## 构建
 

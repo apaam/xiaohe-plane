@@ -6,6 +6,8 @@
 
 - `xiaohe_sso.py`：`/auth/xiaohe/start/` 与 `/auth/xiaohe/callback/`。
 - `bots.py`：`/auth/xiaohe/bots/<slug>/`，workspace Admin 自助创建、轮换、停用 bot（`-bot@xiaohe.local` 账号 + 管理 token）；创建时记录归属人。停用/启用只作用于 token 与 workspace 成员身份，项目成员关系由项目设置单独管理，停用后再启用不会复活已被移出项目的 bot。
+  - GET 对普通成员开放，但只返回其名下的 bot（按 token 上的 `owner=` 标记判定）；管理员返回全部。payload 带 `can_rename`。
+  - `/auth/xiaohe/bots/<slug>/<bot_id>/rename/`：归属人或管理员可改 `display_name`/姓名，邮箱与 token 不变。
 - `/auth/xiaohe/bots/<slug>/assignable/`：任意成员可读，返回每个 bot 当前用户能否指派（供前端灰色显示）。
 - `bot_guard.py` + `patch_serializers.py`：在 issue 创建/更新时校验 bot 归属，只有归属人或 workspace Admin 能指派该 bot。
 - `urls_xiaohe.py`：两条路由。

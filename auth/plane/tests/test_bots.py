@@ -19,7 +19,11 @@ import uuid
 from django.test import TestCase
 from rest_framework.test import APIRequestFactory, force_authenticate
 
-from plane.authentication.views.bots import BotActionView, _bot_payload
+from plane.authentication.views.bots import (
+    BotActionView,
+    BotsView,
+    _bot_payload,
+)
 from plane.db.models import (
     APIToken,
     Project,
@@ -87,16 +91,46 @@ class BotTestBase(TestCase):
             created_by=self.admin,
         )
 
-    def _act(self, action: str, data=None):
+    def _act(self, action: str, data=None, user=None, bot=None):
         request = self.factory.post("/", data or {}, format="json")
-        force_authenticate(request, user=self.admin)
+        force_authenticate(request, user=user or self.admin)
         view = BotActionView.as_view()
         return view(
             request,
             slug=self.workspace.slug,
-            bot_id=str(self.bot.id),
+            bot_id=str((bot or self.bot).id),
             action=action,
         )
+
+    def _list(self, user):
+        request = self.factory.get("/")
+        force_authenticate(request, user=user)
+        return BotsView.as_view()(request, slug=self.workspace.slug)
+
+    def _member(self, email: str, name: str):
+        user = User.objects.create(
+            email=email, username=f"xh-{email.split('@')[0]}", display_name=name
+        )
+        WorkspaceMember.objects.create(
+            workspace=self.workspace, member=user, role=MEMBER_ROLE
+        )
+        return user
+
+    def _bot(self, email: str, name: str, owner_id):
+        bot = User.objects.create(
+            email=email, username=email.split("@")[0], display_name=name
+        )
+        WorkspaceMember.objects.create(
+            workspace=self.workspace, member=bot, role=MEMBER_ROLE
+        )
+        APIToken.objects.create(
+            user=bot,
+            workspace=self.workspace,
+            user_type=1,
+            label=f"{name} bot token",
+            description=f"owner={owner_id}",
+        )
+        return bot
 
 
 class BotPayloadTests(BotTestBase):
@@ -183,3 +217,90 @@ class BotDisableEnableTests(BotTestBase):
         self.assertEqual(
             [row["identifier"] for row in payload["projects"]], ["KEPT"]
         )
+
+
+class BotListScopeTests(BotTestBase):
+    def test_admin_sees_every_bot(self):
+        owner = self._member("owner@example.com", "Owner")
+        self._bot("beta-bot@xiaohe.local", "Beta", owner.id)
+        response = self._list(self.admin)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data["is_admin"])
+        self.assertEqual(
+            sorted(row["display_name"] for row in response.data["bots"]),
+            ["Alpha", "Beta"],
+        )
+
+    def test_member_sees_only_owned_bots(self):
+        owner = self._member("owner@example.com", "Owner")
+        beta = self._bot("beta-bot@xiaohe.local", "Beta", owner.id)
+        response = self._list(owner)
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.data["is_admin"])
+        self.assertEqual([row["id"] for row in response.data["bots"]], [str(beta.id)])
+        self.assertTrue(response.data["bots"][0]["can_rename"])
+
+    def test_member_without_bots_gets_empty_list(self):
+        stranger = self._member("stranger@example.com", "Stranger")
+        response = self._list(stranger)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["bots"], [])
+
+    def test_payload_marks_rename_permission(self):
+        member = WorkspaceMember.objects.get(pk=self.bot_member.pk)
+        self.assertTrue(
+            _bot_payload(self.bot, self.workspace, member, can_rename=True)[
+                "can_rename"
+            ]
+        )
+        self.assertFalse(
+            _bot_payload(self.bot, self.workspace, member)["can_rename"]
+        )
+
+
+class BotRenameTests(BotTestBase):
+    def test_admin_renames_any_bot(self):
+        response = self._act("rename", {"name": "LZS bot"})
+        self.assertEqual(response.status_code, 200)
+        self.bot.refresh_from_db()
+        self.assertEqual(self.bot.display_name, "LZS bot")
+        self.assertEqual(self.bot.first_name, "LZS")
+        self.assertEqual(self.bot.last_name, "bot")
+        # The identity (email) is untouched so memberships and tokens survive.
+        self.assertEqual(self.bot.email, "alpha-bot@xiaohe.local")
+        self.assertTrue(response.data["bot"]["can_rename"])
+
+    def test_owner_renames_own_bot(self):
+        owner = self._member("owner@example.com", "Owner")
+        self.token.description = f"owner={owner.id}"
+        self.token.save(update_fields=["description"])
+        response = self._act("rename", {"name": "LZS bot"}, user=owner)
+        self.assertEqual(response.status_code, 200)
+        self.bot.refresh_from_db()
+        self.assertEqual(self.bot.display_name, "LZS bot")
+
+    def test_non_owner_member_cannot_rename(self):
+        stranger = self._member("stranger@example.com", "Stranger")
+        response = self._act("rename", {"name": "Hijacked"}, user=stranger)
+        self.assertEqual(response.status_code, 403)
+        self.bot.refresh_from_db()
+        self.assertEqual(self.bot.display_name, "Alpha")
+
+    def test_non_owner_member_cannot_rotate(self):
+        stranger = self._member("stranger@example.com", "Stranger")
+        response = self._act("rotate", user=stranger)
+        self.assertEqual(response.status_code, 403)
+
+    def test_rename_rejects_blank_and_overlong_names(self):
+        self.assertEqual(self._act("rename", {"name": "   "}).status_code, 400)
+        self.assertEqual(
+            self._act("rename", {"name": "x" * 65}).status_code, 400
+        )
+        self.bot.refresh_from_db()
+        self.assertEqual(self.bot.display_name, "Alpha")
+
+    def test_rename_collapses_internal_whitespace(self):
+        response = self._act("rename", {"name": "  LZS   agent "})
+        self.assertEqual(response.status_code, 200)
+        self.bot.refresh_from_db()
+        self.assertEqual(self.bot.display_name, "LZS agent")
