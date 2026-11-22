@@ -1,0 +1,15 @@
+diff --git a/apps/web/styles/globals.css b/apps/web/styles/globals.css
+index 88ce508..4ed1f15 100644
+--- a/apps/web/styles/globals.css
++++ b/apps/web/styles/globals.css
+@@ -121,3 +121,10 @@
+ .project-header-tabs > span:last-child {
+   top: calc(100% - 3px);
+ }
++
++/* Xiaohe patch 0025: the project header tab strip is a Base UI ScrollArea whose
++   horizontal scrollbar rail pops up on hover/scroll. The responsive overflow
++   menu already covers hidden tabs, so the rail is noise — hide it. */
++.project-header-tabs ~ [data-orientation="horizontal"] {
++  display: none;
++}
