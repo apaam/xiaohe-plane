@@ -1,0 +1,36 @@
+diff --git a/apps/web/components/pages/list/tab-navigation.tsx b/apps/web/components/pages/list/tab-navigation.tsx
+index 02360c3..3edeea8 100644
+--- a/apps/web/components/pages/list/tab-navigation.tsx
++++ b/apps/web/components/pages/list/tab-navigation.tsx
+@@ -42,7 +42,7 @@ export function PageTabNavigation(props: TPageTabNavigation) {
+ 
+   return (
+     <Tabs variant="underline" value={pageType}>
+-      <div className="mb-0">
++      <div className="pages-header-tabs mb-0">
+         <TabsList aria-label={t("common.pages")}>
+           {pageTabs.map((tab) => (
+             <Tab
+diff --git a/apps/web/styles/globals.css b/apps/web/styles/globals.css
+index 4ed1f15..7ff5489 100644
+--- a/apps/web/styles/globals.css
++++ b/apps/web/styles/globals.css
+@@ -128,3 +128,18 @@
+ .project-header-tabs ~ [data-orientation="horizontal"] {
+   display: none;
+ }
++
++/* Xiaohe patch 0030: keep the Pages sub-header tab pills vertically centred with
++   the search/sort/filter buttons while the active underline stays on the bottom
++   border of the 40px row. The stock underline tab reserves 8px between label and
++   bar, which cannot fit in 40px, so tighten it to 2px, shift the strip down 6px,
++   and pull the tracking indicator up to the new bar position. */
++.pages-header-tabs {
++  padding-top: 6px;
++}
++.pages-header-tabs [role="tab"] {
++  gap: 2px;
++}
++.pages-header-tabs [role="tablist"] > span {
++  top: calc(var(--active-tab-top) + 30px);
++}

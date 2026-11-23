@@ -26,6 +26,7 @@ Plane 上游前端原样构建，只在构建时打几个小补丁，不改业�
 | `0023-bot-self-service.patch` | Workspace Settings → Bots 对普通成员开放：成员只看到自己名下的 bot，可内联改名（管理员仍管理全部 bot、token 与项目权限） |
 | `0026-list-item-density.patch` | Pages（以及共用 ListItem 的 Cycles/Modules/Views）列表条目：行高从 52px 压到 36px，与 Work items 行一致 |
 | `0027-pages-header-density.patch` | Pages 列表子头部（Public/Private/Archived + 搜索/排序/筛选）：从 52px 压到 40px，标签下划线贴到行底；次级 Header 统一 40px |
+| `0030-pages-tabs-center.patch` | Pages 子头部 40px 下，把标签 pill 与右侧按钮竖向居中对齐：标签内间距 8→2px、整体下移 6px，跟踪下划线上移到新栏位 |
 
 ## 构建
 
