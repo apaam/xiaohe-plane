@@ -19,7 +19,7 @@
 | agent MCP | `~/.xiaohe/plane/plane-mcp.sh`；笔记本已注册为 `plane` |
 | 公网入口 | `plane.xiaohe.team` 已代理 Plane；SSO 入口 `/auth/xiaohe/start/` |
 | api 镜像 | `gitea.xiaohe.team/lzhshou/xiaohe-plane-backend:v1.5.0-xh36`（`auth/plane` + 订阅门槛 + 请求防护 + Pages 写接口 + bot 自助改名 + 新页默认 Public） |
-| web 镜像 | `gitea.xiaohe.team/lzhshou/xiaohe-plane-web:v1.5.0-xh42`（前端补丁 + 版本提示 + bot 自助改名 + 项目栏 tab 居中/溢出可达/无滚动条 + Pages 列表行高 36px + Pages 子头部 40px + 未指派工作项一键认领（头部按钮 + ⋯ 菜单）） |
+| web 镜像 | `gitea.xiaohe.team/lzhshou/xiaohe-plane-web:v1.5.0-xh43`（前端补丁 + 版本提示 + bot 自助改名 + 项目栏 tab 居中/溢出可达/无滚动条 + Pages 列表行高 36px + Pages 子头部 40px 且标签与按钮竖向居中 + 未指派工作项一键认领（头部按钮 + ⋯ 菜单）） |
 | 容器访问 accounts | `extra_hosts: accounts.xiaohe.team:host-gateway`，避免公网 hairpin 超时 |
 | 备份 | 每日 03:17 cron，`~/plane-backups`（Postgres dump + uploads tar，保留 14 天） |
 | 实际内存 | Plane 容器合计约 1.5GiB；host 可用约 4.6GiB |
